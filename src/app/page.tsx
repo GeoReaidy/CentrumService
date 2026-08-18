@@ -1,69 +1,37 @@
-import Image from "next/image";
-import styles from "./page.module.css";
-
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <section className="hero">
+        <h1>Fast and stable internet across Bekaa.</h1>
+        <p>
+          BekaaNet provides dependable home and business connectivity in Deir el Ahmar,
+          Chlifa, and nearby towns.
+        </p>
+        <div className="cta-row">
+          <a href="/plans" className="btn btn-primary">View Plans</a>
+          <a href="/portal/login" className="btn btn-secondary">Customer Portal</a>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="section-grid">
+        <article className="card">
+          <h2>Service coverage</h2>
+          <p>We currently cover Deir el Ahmar, Chlifa, and surrounding villages.</p>
+          <a href="/coverage" className="text-link">See full coverage map and areas</a>
+        </article>
+
+        <article className="card">
+          <h2>Support that responds</h2>
+          <p>Report issues from your portal and get direct updates from our team.</p>
+          <a href="/contact" className="text-link">Contact support</a>
+        </article>
+
+        <article className="card">
+          <h2>Built for growth</h2>
+          <p>Phase 1 delivers essential customer and admin features with Supabase.</p>
+          <a href="/admin" className="text-link">Open admin dashboard</a>
+        </article>
+      </section>
+    </>
   );
 }
