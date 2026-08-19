@@ -124,33 +124,33 @@ export default function PortalDashboardPage() {
 
     const [profileResult, ticketsResult, paymentsResult, announcementsResult, requestsResult, networkResult] = await Promise.all([
       supabase
-        .from("profiles")
-        .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date")
-        .eq("id", userId)
-        .maybeSingle(),
+          .from("profiles")
+          .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date")
+          .eq("id", userId)
+          .maybeSingle(),
       supabase
-        .from("tickets")
-        .select("id,subject,status")
-        .eq("customer_id", userId)
-        .neq("status", "resolved")
-        .order("created_at", { ascending: false }),
+          .from("tickets")
+          .select("id,subject,status")
+          .eq("customer_id", userId)
+          .neq("status", "resolved")
+          .order("created_at", { ascending: false }),
       supabase
-        .from("payments")
-        .select("id,amount_usd,paid_at,payment_method,reference")
-        .eq("customer_id", userId)
-        .order("paid_at", { ascending: false })
-        .limit(5),
+          .from("payments")
+          .select("id,amount_usd,paid_at,payment_method,reference")
+          .eq("customer_id", userId)
+          .order("paid_at", { ascending: false })
+          .limit(5),
       supabase
-        .from("announcements")
-        .select("id,title,body,created_at")
-        .order("created_at", { ascending: false })
-        .limit(5),
+          .from("announcements")
+          .select("id,title,body,created_at")
+          .order("created_at", { ascending: false })
+          .limit(5),
       supabase
-        .from("service_requests")
-        .select("id,request_type,details,status,admin_note,created_at")
-        .eq("customer_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(8),
+          .from("service_requests")
+          .select("id,request_type,details,status,admin_note,created_at")
+          .eq("customer_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(8),
       supabase.rpc("get_my_network_status"),
     ]);
 
@@ -173,10 +173,10 @@ export default function PortalDashboardPage() {
 
     if (nextProfile?.plan_id) {
       const { data } = await supabase
-        .from("plans")
-        .select("id,name,speed_down_mbps,speed_up_mbps,monthly_price_usd,monthly_quota_gb")
-        .eq("id", nextProfile.plan_id)
-        .maybeSingle();
+          .from("plans")
+          .select("id,name,speed_down_mbps,speed_up_mbps,monthly_price_usd,monthly_quota_gb")
+          .eq("id", nextProfile.plan_id)
+          .maybeSingle();
       setPlan((data as DbPlan | null) ?? null);
     } else {
       setPlan(null);
@@ -344,11 +344,11 @@ export default function PortalDashboardPage() {
   if (!supabase) return <section><h1>Customer Dashboard</h1><p className="page-intro">Supabase is not configured yet.</p></section>;
   if (!account) {
     return (
-      <section>
-        <h1>Customer Dashboard</h1>
-        <p className="page-intro">Please sign in to manage your Centrum account.</p>
-        <div className="section-actions"><Link href="/portal/login" className="btn btn-primary">Go to login</Link></div>
-      </section>
+        <section>
+          <h1>Customer Dashboard</h1>
+          <p className="page-intro">Please sign in to manage your Centrum account.</p>
+          <div className="section-actions"><Link href="/portal/login" className="btn btn-primary">Go to login</Link></div>
+        </section>
     );
   }
 
@@ -358,164 +358,165 @@ export default function PortalDashboardPage() {
   const customerNodeState = deriveCustomerNodeState(node, globalMaintenance, monitorHeartbeat);
 
   return (
-    <section className="animate-fade-in portal-dashboard">
-      <div className={`badge badge-pulse page-badge customer-network-badge customer-network-${customerNodeState.key}`}>Your Node: {customerNodeState.label}</div>
-      <div className="portal-heading-row">
-        <div>
-          <h1>Customer Dashboard</h1>
-          <p className="page-intro">Welcome back, {displayName}. Everything here is managed directly by Centrum Service.</p>
+      <section className="animate-fade-in portal-dashboard">
+        <div className={`badge badge-pulse page-badge customer-network-badge customer-network-${customerNodeState.key}`}>Your Node: {customerNodeState.label}</div>
+        <div className="portal-heading-row">
+          <div>
+            <h1>Customer Dashboard</h1>
+            <p className="page-intro">Welcome back, {displayName}. Everything here is managed directly by Centrum Service.</p>
+          </div>
+          <div className="section-actions portal-heading-actions">
+            {isAdmin ? <Link href="/admin" className="btn btn-secondary">Admin Dashboard</Link> : null}
+            <ServiceCustomizationWizard
+                defaults={{ fullName: displayName, email: account.email ?? "", phone: profile?.phone ?? "", address: profile?.address ?? "", preferredPlanId: profile?.plan_id ?? null }}
+                triggerLabel="Help Me Customize My Service"
+                triggerClassName="btn btn-primary"
+            />
+            <Link href="/portal/account" className="btn btn-secondary">Account Settings</Link>
+            <button type="button" className="btn btn-secondary" onClick={handleSignOut}>Sign out</button>
+          </div>
         </div>
-        <div className="section-actions portal-heading-actions">
-          {isAdmin ? <Link href="/admin" className="btn btn-secondary">Admin Dashboard</Link> : null}
-          <ServiceCustomizationWizard
-            defaults={{ fullName: displayName, email: account.email ?? "", phone: profile?.phone ?? "", address: profile?.address ?? "", preferredPlanId: profile?.plan_id ?? null }}
-            triggerLabel="Help Me Customize My Service"
-            triggerClassName="btn btn-primary"
-          />
-          <button type="button" className="btn btn-secondary" onClick={handleSignOut}>Sign out</button>
-        </div>
-      </div>
 
-      {dataError ? <p className="form-alert form-alert-error">Some portal data could not load: {dataError}. Make sure the required Supabase migrations have been applied.</p> : null}
+        {dataError ? <p className="form-alert form-alert-error">Some portal data could not load: {dataError}. Make sure the required Supabase migrations have been applied.</p> : null}
 
-      <div className="dashboard-card-grid">
-        <article className="card dashboard-summary-card">
-          <div className="badge card-badge">Service</div>
-          <h2>Current Plan</h2>
-          {plan ? (
-            <>
-              <p className="dashboard-big-value">{plan.name}</p>
-              <div className="dashboard-metrics">
-                <span><strong>{plan.speed_down_mbps}</strong> Mbps down</span>
-                <span><strong>{plan.speed_up_mbps}</strong> Mbps up</span>
-                <span><strong>${plan.monthly_price_usd}</strong>/month</span>
-              </div>
-            </>
-          ) : <p className="empty-state">No plan has been assigned yet.</p>}
-        </article>
+        <div className="dashboard-card-grid">
+          <article className="card dashboard-summary-card">
+            <div className="badge card-badge">Service</div>
+            <h2>Current Plan</h2>
+            {plan ? (
+                <>
+                  <p className="dashboard-big-value">{plan.name}</p>
+                  <div className="dashboard-metrics">
+                    <span><strong>{plan.speed_down_mbps}</strong> Mbps down</span>
+                    <span><strong>{plan.speed_up_mbps}</strong> Mbps up</span>
+                    <span><strong>${plan.monthly_price_usd}</strong>/month</span>
+                  </div>
+                </>
+            ) : <p className="empty-state">No plan has been assigned yet.</p>}
+          </article>
 
-        <article className="card dashboard-summary-card">
-          <div className="badge card-badge">Connection</div>
-          <h2>Service Status</h2>
-          <p className="dashboard-big-value"><span className={`status-pill customer-node-status customer-node-${customerNodeState.key}`}>{customerNodeState.label}</span></p>
-          <p className="field-note customer-node-message">{customerNodeState.message}</p>
-          <div className="dashboard-detail-list">
-            <span><strong>Node:</strong> {node?.name ?? "Not assigned"}</span>
-            <span><strong>Account:</strong> {formatStatus(serviceStatus)}</span>
-            {node?.latency_ms !== null && node?.latency_ms !== undefined ? <span><strong>Latency:</strong> {node.latency_ms} ms</span> : null}
-            <span><strong>Address:</strong> {profile?.address ?? "Not provided"}</span>
-            <span><strong>Activated:</strong> {formatDate(profile?.activation_date)}</span>
-          </div>
-        </article>
-
-        <article className="card dashboard-summary-card">
-          <div className="badge card-badge">Billing</div>
-          <h2>Next Renewal</h2>
-          <p className="dashboard-big-value">{formatDate(profile?.renewal_date)}</p>
-          <span className={`status-pill ${renewalState.className}`}>{renewalState.label}</span>
-          {plan ? <p className="field-note">Expected plan charge: ${plan.monthly_price_usd}</p> : null}
-        </article>
-
-        <article className="card dashboard-summary-card">
-          <div className="badge card-badge">Last Payment</div>
-          <h2>Payment Record</h2>
-          {latestPayment ? (
-            <>
-              <p className="dashboard-big-value">${Number(latestPayment.amount_usd).toFixed(2)}</p>
-              <div className="dashboard-detail-list">
-                <span>{formatDateTime(latestPayment.paid_at)}</span>
-                <span>{formatStatus(latestPayment.payment_method)}</span>
-                {latestPayment.reference ? <span>Ref: {latestPayment.reference}</span> : null}
-              </div>
-            </>
-          ) : <p className="empty-state">No payment has been recorded yet.</p>}
-        </article>
-      </div>
-
-      <div className="section-grid portal-two-col">
-        <article className="card">
-          <div className="badge card-badge">Communication</div>
-          <h2>Active Tickets</h2>
-          <ul className="simple-list compact-scroll-list" style={{ marginTop: "1rem" }}>
-            {tickets.length ? tickets.map((ticket) => (
-              <li key={ticket.id}>
-                <Link href={`/portal/tickets/${ticket.id}`} className="ticket-row">
-                  <span><strong>#{ticket.id}</strong> · {ticket.subject}</span>
-                  <span className={`status-pill status-${ticket.status}`}>{statusLabelMap[ticket.status] ?? ticket.status}</span>
-                </Link>
-              </li>
-            )) : <li className="empty-state">No active tickets.</li>}
-          </ul>
-          <div className="section-actions"><Link href="/portal/tickets/new" className="btn btn-primary">Create New Ticket</Link></div>
-        </article>
-
-        <article className="card">
-          <div className="badge card-badge">Notices</div>
-          <h2>Announcements</h2>
-          <div className="portal-feed compact-scroll-list">
-            {announcements.length ? announcements.map((announcement) => (
-              <div className="portal-feed-item" key={announcement.id}>
-                <strong>{announcement.title}</strong>
-                <p>{announcement.body}</p>
-                <span>{formatDateTime(announcement.created_at)}</span>
-              </div>
-            )) : <p className="empty-state">No current announcements.</p>}
-          </div>
-        </article>
-      </div>
-
-      <div className="section-grid portal-two-col">
-        <article className="card">
-          <div className="badge card-badge">Requests</div>
-          <h2>Request a Service Change</h2>
-          <p className="page-intro">Ask for a technical visit, plan change, relocation, equipment replacement, or another account action.</p>
-          <form className="form-grid" onSubmit={submitServiceRequest}>
-            <label>Request type
-              <select value={requestType} onChange={(event) => setRequestType(event.target.value as keyof typeof requestTypeLabels)}>
-                {Object.entries(requestTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
-            <label>Details
-              <textarea rows={5} value={requestDetails} onChange={(event) => setRequestDetails(event.target.value)} placeholder="Tell us what you need and any timing or location details." required />
-            </label>
-            {requestError ? <p className="form-alert form-alert-error">{requestError}</p> : null}
-            {requestMessage ? <p className="form-alert form-alert-success">{requestMessage}</p> : null}
-            <button className="btn btn-primary" type="submit" disabled={isSubmittingRequest}>{isSubmittingRequest ? "Sending..." : "Send Request"}</button>
-          </form>
-        </article>
-
-        <article className="card">
-          <div className="badge card-badge">History</div>
-          <h2>Service Requests</h2>
-          <div className="portal-feed compact-scroll-list">
-            {serviceRequests.length ? serviceRequests.map((request) => (
-              <div className="portal-feed-item" key={request.id}>
-                <div className="portal-feed-heading">
-                  <strong>#{request.id} · {requestTypeLabels[request.request_type] ?? formatStatus(request.request_type)}</strong>
-                  <span className={`status-pill status-${request.status}`}>{requestStatusLabels[request.status] ?? formatStatus(request.status)}</span>
-                </div>
-                <p>{request.details}</p>
-                {request.admin_note ? <p className="field-note"><strong>Centrum:</strong> {request.admin_note}</p> : null}
-                <span>{formatDateTime(request.created_at)}</span>
-              </div>
-            )) : <p className="empty-state">No service requests yet.</p>}
-          </div>
-        </article>
-      </div>
-
-      <article className="card">
-        <div className="badge card-badge">Billing History</div>
-        <h2>Recent Payments</h2>
-        <div className="portal-payment-list compact-scroll-list">
-          {payments.length ? payments.map((payment) => (
-            <div className="portal-payment-row" key={payment.id}>
-              <div><strong>${Number(payment.amount_usd).toFixed(2)}</strong><span>{formatDateTime(payment.paid_at)}</span></div>
-              <div><span>{formatStatus(payment.payment_method)}</span>{payment.reference ? <code>{payment.reference}</code> : null}</div>
+          <article className="card dashboard-summary-card">
+            <div className="badge card-badge">Connection</div>
+            <h2>Service Status</h2>
+            <p className="dashboard-big-value"><span className={`status-pill customer-node-status customer-node-${customerNodeState.key}`}>{customerNodeState.label}</span></p>
+            <p className="field-note customer-node-message">{customerNodeState.message}</p>
+            <div className="dashboard-detail-list">
+              <span><strong>Node:</strong> {node?.name ?? "Not assigned"}</span>
+              <span><strong>Account:</strong> {formatStatus(serviceStatus)}</span>
+              {node?.latency_ms !== null && node?.latency_ms !== undefined ? <span><strong>Latency:</strong> {node.latency_ms} ms</span> : null}
+              <span><strong>Address:</strong> {profile?.address ?? "Not provided"}</span>
+              <span><strong>Activated:</strong> {formatDate(profile?.activation_date)}</span>
             </div>
-          )) : <p className="empty-state">No payment records yet.</p>}
+          </article>
+
+          <article className="card dashboard-summary-card">
+            <div className="badge card-badge">Billing</div>
+            <h2>Next Renewal</h2>
+            <p className="dashboard-big-value">{formatDate(profile?.renewal_date)}</p>
+            <span className={`status-pill ${renewalState.className}`}>{renewalState.label}</span>
+            {plan ? <p className="field-note">Expected plan charge: ${plan.monthly_price_usd}</p> : null}
+          </article>
+
+          <article className="card dashboard-summary-card">
+            <div className="badge card-badge">Last Payment</div>
+            <h2>Payment Record</h2>
+            {latestPayment ? (
+                <>
+                  <p className="dashboard-big-value">${Number(latestPayment.amount_usd).toFixed(2)}</p>
+                  <div className="dashboard-detail-list">
+                    <span>{formatDateTime(latestPayment.paid_at)}</span>
+                    <span>{formatStatus(latestPayment.payment_method)}</span>
+                    {latestPayment.reference ? <span>Ref: {latestPayment.reference}</span> : null}
+                  </div>
+                </>
+            ) : <p className="empty-state">No payment has been recorded yet.</p>}
+          </article>
         </div>
-      </article>
-    </section>
+
+        <div className="section-grid portal-two-col">
+          <article className="card">
+            <div className="badge card-badge">Communication</div>
+            <h2>Active Tickets</h2>
+            <ul className="simple-list compact-scroll-list" style={{ marginTop: "1rem" }}>
+              {tickets.length ? tickets.map((ticket) => (
+                  <li key={ticket.id}>
+                    <Link href={`/portal/tickets/${ticket.id}`} className="ticket-row">
+                      <span><strong>#{ticket.id}</strong> · {ticket.subject}</span>
+                      <span className={`status-pill status-${ticket.status}`}>{statusLabelMap[ticket.status] ?? ticket.status}</span>
+                    </Link>
+                  </li>
+              )) : <li className="empty-state">No active tickets.</li>}
+            </ul>
+            <div className="section-actions"><Link href="/portal/tickets/new" className="btn btn-primary">Create New Ticket</Link></div>
+          </article>
+
+          <article className="card">
+            <div className="badge card-badge">Notices</div>
+            <h2>Announcements</h2>
+            <div className="portal-feed compact-scroll-list">
+              {announcements.length ? announcements.map((announcement) => (
+                  <div className="portal-feed-item" key={announcement.id}>
+                    <strong>{announcement.title}</strong>
+                    <p>{announcement.body}</p>
+                    <span>{formatDateTime(announcement.created_at)}</span>
+                  </div>
+              )) : <p className="empty-state">No current announcements.</p>}
+            </div>
+          </article>
+        </div>
+
+        <div className="section-grid portal-two-col">
+          <article className="card">
+            <div className="badge card-badge">Requests</div>
+            <h2>Request a Service Change</h2>
+            <p className="page-intro">Ask for a technical visit, plan change, relocation, equipment replacement, or another account action.</p>
+            <form className="form-grid" onSubmit={submitServiceRequest}>
+              <label>Request type
+                <select value={requestType} onChange={(event) => setRequestType(event.target.value as keyof typeof requestTypeLabels)}>
+                  {Object.entries(requestTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label>Details
+                <textarea rows={5} value={requestDetails} onChange={(event) => setRequestDetails(event.target.value)} placeholder="Tell us what you need and any timing or location details." required />
+              </label>
+              {requestError ? <p className="form-alert form-alert-error">{requestError}</p> : null}
+              {requestMessage ? <p className="form-alert form-alert-success">{requestMessage}</p> : null}
+              <button className="btn btn-primary" type="submit" disabled={isSubmittingRequest}>{isSubmittingRequest ? "Sending..." : "Send Request"}</button>
+            </form>
+          </article>
+
+          <article className="card">
+            <div className="badge card-badge">History</div>
+            <h2>Service Requests</h2>
+            <div className="portal-feed compact-scroll-list">
+              {serviceRequests.length ? serviceRequests.map((request) => (
+                  <div className="portal-feed-item" key={request.id}>
+                    <div className="portal-feed-heading">
+                      <strong>#{request.id} · {requestTypeLabels[request.request_type] ?? formatStatus(request.request_type)}</strong>
+                      <span className={`status-pill status-${request.status}`}>{requestStatusLabels[request.status] ?? formatStatus(request.status)}</span>
+                    </div>
+                    <p>{request.details}</p>
+                    {request.admin_note ? <p className="field-note"><strong>Centrum:</strong> {request.admin_note}</p> : null}
+                    <span>{formatDateTime(request.created_at)}</span>
+                  </div>
+              )) : <p className="empty-state">No service requests yet.</p>}
+            </div>
+          </article>
+        </div>
+
+        <article className="card">
+          <div className="badge card-badge">Billing History</div>
+          <h2>Recent Payments</h2>
+          <div className="portal-payment-list compact-scroll-list">
+            {payments.length ? payments.map((payment) => (
+                <div className="portal-payment-row" key={payment.id}>
+                  <div><strong>${Number(payment.amount_usd).toFixed(2)}</strong><span>{formatDateTime(payment.paid_at)}</span></div>
+                  <div><span>{formatStatus(payment.payment_method)}</span>{payment.reference ? <code>{payment.reference}</code> : null}</div>
+                </div>
+            )) : <p className="empty-state">No payment records yet.</p>}
+          </div>
+        </article>
+      </section>
   );
 }
 

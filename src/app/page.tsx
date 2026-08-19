@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { derivePublicNetworkStatus, settingIsEnabled, statusSlug } from "@/lib/network-monitoring";
+import { statusSlug } from "@/lib/network-monitoring";
 
 type DbPlan = {
   id: number;
@@ -35,19 +35,11 @@ export default function HomePage() {
   const fetchNetworkStatus = useCallback(async () => {
     if (!supabase) return;
 
-    const { data, error } = await supabase
-        .from("system_settings")
-        .select("key,value")
-        .in("key", ["network_status", "global_maintenance", "monitor_heartbeat_at"]);
+    const { data, error } = await supabase.rpc("get_public_network_status");
+    if (error) return;
 
-    if (!error) {
-      const settings = new Map((data ?? []).map((row) => [row.key, row.value]));
-      setNetworkStatus(derivePublicNetworkStatus(
-          settings.get("network_status"),
-          settingIsEnabled(settings.get("global_maintenance")),
-          settings.get("monitor_heartbeat_at"),
-      ));
-    }
+    const row = (Array.isArray(data) ? data[0] : null) as { status?: string } | null;
+    if (row?.status) setNetworkStatus(row.status);
   }, [supabase]);
 
   /*

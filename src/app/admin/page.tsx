@@ -25,6 +25,9 @@ type DbProfile = {
   service_status: string;
   activation_date: string | null;
   renewal_date: string | null;
+  renewal_auto_advance: boolean;
+  renewal_interval_value: number;
+  renewal_interval_unit: "week" | "month" | "year";
 };
 
 type DbPlan = {
@@ -86,6 +89,9 @@ type ProfileDraft = {
   service_status: string;
   activation_date: string;
   renewal_date: string;
+  renewal_auto_advance: boolean;
+  renewal_interval_value: string;
+  renewal_interval_unit: "week" | "month" | "year";
 };
 
 type PlanForm = {
@@ -211,7 +217,7 @@ export default function AdminPage() {
     if (!supabase) return;
     const { data, error } = await supabase
         .from("profiles")
-        .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date")
+        .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date,renewal_auto_advance,renewal_interval_value,renewal_interval_unit")
         .order("full_name", { ascending: true })
         .limit(1000);
     if (error) {
@@ -434,6 +440,9 @@ export default function AdminPage() {
       service_status: user.service_status ?? "active",
       activation_date: user.activation_date ?? "",
       renewal_date: user.renewal_date ?? "",
+      renewal_auto_advance: user.renewal_auto_advance ?? false,
+      renewal_interval_value: String(user.renewal_interval_value ?? 1),
+      renewal_interval_unit: user.renewal_interval_unit ?? "month",
     };
   }
 
@@ -449,6 +458,11 @@ export default function AdminPage() {
     setUserMessage("");
 
     const chosenPlan = plans.find((plan) => String(plan.id) === draft.plan_id) ?? null;
+    const parsedRenewalInterval = Number.parseInt(draft.renewal_interval_value, 10);
+    const renewalIntervalValue =
+        Number.isFinite(parsedRenewalInterval) && parsedRenewalInterval > 0
+            ? Math.min(parsedRenewalInterval, 52)
+            : 1;
     const payload = {
       phone: draft.phone.trim() || null,
       address: draft.address.trim() || null,
@@ -457,6 +471,9 @@ export default function AdminPage() {
       service_status: draft.service_status || "active",
       activation_date: draft.activation_date || null,
       renewal_date: draft.renewal_date || null,
+      renewal_auto_advance: draft.renewal_auto_advance,
+      renewal_interval_value: renewalIntervalValue,
+      renewal_interval_unit: draft.renewal_interval_unit,
     };
 
     const { error } = await supabase!.from("profiles").update(payload).eq("id", user.id);
@@ -475,6 +492,9 @@ export default function AdminPage() {
       service_status: payload.service_status,
       activation_date: payload.activation_date,
       renewal_date: payload.renewal_date,
+      renewal_auto_advance: payload.renewal_auto_advance,
+      renewal_interval_value: payload.renewal_interval_value,
+      renewal_interval_unit: payload.renewal_interval_unit,
     } : item));
     setSelectedUserId(null);
     setUserMessage(`${user.full_name ?? "Customer"} was updated.`);
@@ -1071,6 +1091,39 @@ export default function AdminPage() {
                           </label>
                           <label>Activation date<input type="date" value={draft.activation_date} onChange={(event) => updateDraft(user, { activation_date: event.target.value })} /></label>
                           <label>Next renewal<input type="date" value={draft.renewal_date} onChange={(event) => updateDraft(user, { renewal_date: event.target.value })} /></label>
+                          <label>Renewal behavior
+                            <select
+                                value={draft.renewal_auto_advance ? "auto" : "manual"}
+                                onChange={(event) => updateDraft(user, { renewal_auto_advance: event.target.value === "auto" })}
+                            >
+                              <option value="manual">Manual date</option>
+                              <option value="auto">Auto-advance after payment</option>
+                            </select>
+                          </label>
+                          {draft.renewal_auto_advance ? (
+                              <>
+                                <label>Renew every
+                                  <input
+                                      type="number"
+                                      min="1"
+                                      max="52"
+                                      step="1"
+                                      value={draft.renewal_interval_value}
+                                      onChange={(event) => updateDraft(user, { renewal_interval_value: event.target.value })}
+                                  />
+                                </label>
+                                <label>Renewal interval
+                                  <select
+                                      value={draft.renewal_interval_unit}
+                                      onChange={(event) => updateDraft(user, { renewal_interval_unit: event.target.value as ProfileDraft["renewal_interval_unit"] })}
+                                  >
+                                    <option value="week">Week(s)</option>
+                                    <option value="month">Month(s)</option>
+                                    <option value="year">Year(s)</option>
+                                  </select>
+                                </label>
+                              </>
+                          ) : null}
                           <div className="customer-editor-actions">
                             <button type="button" className="btn btn-primary" onClick={() => saveUser(user)} disabled={savingUserId === user.id}>
                               {savingUserId === user.id ? "Saving..." : "Save Customer"}
