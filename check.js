@@ -23,6 +23,7 @@ const expected = new Map([
   ["portal/register/page.tsx", "PortalRegisterPage"],
   ["portal/tickets/new/page.tsx", "NewTicketPage"],
   ["portal/tickets/[id]/page.tsx", "PortalTicketDetailsPage"],
+  ["portal/email-confirmed/page.tsx", "PortalEmailConfirmedPage"],
 ]);
 
 let failed = false;

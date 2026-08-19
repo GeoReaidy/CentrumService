@@ -44,7 +44,7 @@ export default function PortalRegisterPage() {
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      setErrorMessage("Supabase is not configured yet. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.");
+      setErrorMessage("Centrum account services are temporarily unavailable.");
       setIsSubmitting(false);
       return;
     }
@@ -53,6 +53,7 @@ export default function PortalRegisterPage() {
       email: normalizedEmail,
       password,
       options: {
+        emailRedirectTo: "https://centrumservice.net/portal/email-confirmed",
         data: {
           full_name: normalizedName,
         },
@@ -66,7 +67,7 @@ export default function PortalRegisterPage() {
     }
 
     if (!session) {
-      setSuccessMessage("Account created. Check your email to confirm your account, then sign in.");
+      setSuccessMessage("Account created. Check your email to confirm your account.");
       setIsSubmitting(false);
       return;
     }
@@ -77,79 +78,79 @@ export default function PortalRegisterPage() {
   }
 
   return (
-    <section className="auth-shell animate-fade-in">
-      <article className="card auth-card">
-        <h1>Create Your Portal Account</h1>
-        <p className="page-intro">
-          Register to track support requests and manage your internet service details.
-        </p>
+      <section className="auth-shell animate-fade-in">
+        <article className="card auth-card">
+          <h1>Create Your Portal Account</h1>
+          <p className="page-intro">
+            Register to track support requests and manage your internet service details.
+          </p>
 
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label>
-            Full name
-            <input
-              type="text"
-              placeholder="Your full name"
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
-              required
+          <form className="form-grid" onSubmit={handleSubmit}>
+            <label>
+              Full name
+              <input
+                  type="text"
+                  placeholder="Your full name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  required
+              />
+            </label>
+            <label>
+              Email
+              <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+              />
+            </label>
+            <label>
+              Password
+              <input
+                  type="password"
+                  placeholder="Choose a password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  minLength={8}
+                  required
+              />
+            </label>
+            <label>
+              Confirm password
+              <input
+                  type="password"
+                  placeholder="Repeat your password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  minLength={8}
+                  required
+              />
+            </label>
+
+            {errorMessage ? <p className="form-alert form-alert-error">{errorMessage}</p> : null}
+            {successMessage ? <p className="form-alert form-alert-success">{successMessage}</p> : null}
+
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+              {isSubmitting ? "Creating account..." : "Create account"}
+            </button>
+          </form>
+
+          <div className="auth-customization-box">
+            <strong>Not sure which setup fits you?</strong>
+            <p>This optional guided request helps Centrum recommend a plan and installation setup. Existing customers can use it too.</p>
+            <ServiceCustomizationWizard
+                defaults={{ fullName, email }}
+                triggerLabel="Help Me Customize My Service"
+                triggerClassName="btn btn-secondary"
             />
-          </label>
-          <label>
-            Email
-            <input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              placeholder="Choose a password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-          </label>
-          <label>
-            Confirm password
-            <input
-              type="password"
-              placeholder="Repeat your password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-          </label>
+          </div>
 
-          {errorMessage ? <p className="form-alert form-alert-error">{errorMessage}</p> : null}
-          {successMessage ? <p className="form-alert form-alert-success">{successMessage}</p> : null}
-
-          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-            {isSubmitting ? "Creating account..." : "Create account"}
-          </button>
-        </form>
-
-        <div className="auth-customization-box">
-          <strong>Not sure which setup fits you?</strong>
-          <p>This optional guided request helps Centrum recommend a plan and installation setup. Existing customers can use it too.</p>
-          <ServiceCustomizationWizard
-            defaults={{ fullName, email }}
-            triggerLabel="Help Me Customize My Service"
-            triggerClassName="btn btn-secondary"
-          />
-        </div>
-
-        <p className="auth-helper-text">
-          Already have access? <Link href="/portal/login">Sign in</Link>
-        </p>
-      </article>
-    </section>
+          <p className="auth-helper-text">
+            Already have access? <Link href="/portal/login">Sign in</Link>
+          </p>
+        </article>
+      </section>
   );
 }
