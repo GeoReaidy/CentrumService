@@ -1,0 +1,22 @@
+CENTRUM SERVICE ROUTE FIX
+
+Root cause found in the exact uploaded CentrumService(6).zip:
+
+Three separate route files were byte-for-byte copies of the ticket-details page:
+  src/app/page.tsx
+  src/app/portal/page.tsx
+  src/app/portal/tickets/[id]/page.tsx
+
+That is why localhost:3000/ showed "Sign In Required" for a support ticket.
+
+Fixed:
+  /                         -> HomePage
+  /portal                   -> PortalPage role router
+  /portal/tickets/[id]      -> PortalTicketDetailsPage
+
+The rest of the uploaded project was left intact.
+
+After replacing your project:
+  1. Stop npm run dev.
+  2. Delete .next.
+  3. Run npm run dev again.

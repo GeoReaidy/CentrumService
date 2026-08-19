@@ -1,0 +1,5 @@
+[functions.network-monitor]
+verify_jwt = false
+
+[functions.service-customization]
+verify_jwt = false

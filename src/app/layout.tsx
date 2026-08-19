@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,33 +14,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BekaaNet",
-  description: "Internet provider in Bekaa serving Deir el Ahmar, Chlifa, and nearby areas.",
+  title: "Centrum Service",
+  description: "Reliable internet service across North Bekaa.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
-        <header className="site-header">
-          <div className="container nav-wrap">
-            <Link href="/" className="brand">
-              BekaaNet
-            </Link>
-            <nav className="main-nav">
-              <Link href="/">Home</Link>
-              <Link href="/coverage">Coverage</Link>
-              <Link href="/plans">Plans</Link>
-              <Link href="/contact">Contact</Link>
-              <Link href="/portal/login">Portal</Link>
-              <Link href="/admin">Admin</Link>
-            </nav>
-          </div>
-        </header>
+        <SiteHeader />
         <main className="container content">{children}</main>
         <footer className="site-footer">
           <div className="container">
-            <p>BekaaNet © {new Date().getFullYear()} - Reliable internet for Bekaa.</p>
+            <p>Centrum Service © {new Date().getFullYear()} - Reliable internet for Bekaa.</p>
           </div>
         </footer>
       </body>
