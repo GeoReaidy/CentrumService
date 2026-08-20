@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import styles from "./SiteHeader.module.css";
 
 const links = [
   { href: "/", label: "Home" },
@@ -13,23 +13,31 @@ const links = [
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
+  const renderLinks = () =>
+    links.map((link) => {
+      const activePrefix = "activePrefix" in link ? link.activePrefix : link.href;
+      const active =
+        link.href === "/"
+          ? pathname === "/"
+          : pathname === link.href ||
+            pathname.startsWith(`${activePrefix}/`) ||
+            pathname === activePrefix;
 
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileMenuOpen(false);
-    };
-
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, []);
+      return (
+        <a
+          href={link.href}
+          key={link.href}
+          className={active ? "nav-link-active" : undefined}
+          aria-current={active ? "page" : undefined}
+        >
+          {link.label}
+        </a>
+      );
+    });
 
   return (
-    <header className={`site-header${mobileMenuOpen ? " mobile-menu-open" : ""}`}>
+    <header className="site-header">
       <div className="container nav-wrap">
         <a href="/" className="brand site-brand" aria-label="Centrum Service homepage">
           <img
@@ -52,45 +60,27 @@ export function SiteHeader() {
           </span>
         </a>
 
-        <button
-          type="button"
-          className="mobile-nav-toggle"
-          aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-          aria-expanded={mobileMenuOpen}
-          aria-controls="main-navigation"
-          onClick={() => setMobileMenuOpen((open) => !open)}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-
         <nav
-          id="main-navigation"
-          className={`main-nav${mobileMenuOpen ? " main-nav-open" : ""}`}
+          className={`main-nav ${styles.desktopNav}`}
           aria-label="Main navigation"
         >
-          {links.map((link) => {
-            const activePrefix = "activePrefix" in link ? link.activePrefix : link.href;
-            const active =
-              link.href === "/"
-                ? pathname === "/"
-                : pathname === link.href ||
-                  pathname.startsWith(`${activePrefix}/`) ||
-                  pathname === activePrefix;
-
-            return (
-              <a
-                href={link.href}
-                key={link.href}
-                className={active ? "nav-link-active" : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {link.label}
-              </a>
-            );
-          })}
+          {renderLinks()}
         </nav>
+
+        <details className={styles.mobileNav}>
+          <summary
+            className={styles.mobileNavToggle}
+            aria-label="Open navigation menu"
+          >
+            <span />
+            <span />
+            <span />
+          </summary>
+
+          <nav className={styles.mobileNavPanel} aria-label="Mobile navigation">
+            {renderLinks()}
+          </nav>
+        </details>
       </div>
     </header>
   );
