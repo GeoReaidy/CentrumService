@@ -5,6 +5,31 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { getSupabaseBrowserClient, setRememberSession } from "@/lib/supabase-browser";
 
+function loginErrorMessage(error: { message?: string; status?: number }) {
+  const message = (error.message ?? "").toLowerCase();
+
+  if (message.includes("email not confirmed")) {
+    return "Confirm your email before signing in.";
+  }
+
+  if (
+      error.status === 429 ||
+      message.includes("rate limit") ||
+      message.includes("too many")
+  ) {
+    return "Too many sign-in attempts. Please wait a moment and try again.";
+  }
+
+  if (
+      message.includes("invalid login credentials") ||
+      message.includes("invalid credentials")
+  ) {
+    return "Email or password is incorrect.";
+  }
+
+  return "We couldn't sign you in. Please check your details and try again.";
+}
+
 export default function PortalLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -33,7 +58,7 @@ export default function PortalLoginPage() {
     setRememberSession(rememberMe);
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      setErrorMessage("Supabase is not configured yet. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.");
+      setErrorMessage("Centrum account services are temporarily unavailable.");
       setIsSubmitting(false);
       return;
     }
@@ -44,12 +69,13 @@ export default function PortalLoginPage() {
     });
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(loginErrorMessage(error));
       setIsSubmitting(false);
       return;
     }
 
-    router.replace("/portal/dashboard");
+    // Let the role-aware portal router choose customer vs. admin workspace.
+    router.replace("/portal");
     router.refresh();
   }
 
@@ -69,9 +95,11 @@ export default function PortalLoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
                   required
               />
             </label>
+
             <label>
               Password
               <input
@@ -86,7 +114,10 @@ export default function PortalLoginPage() {
               <span className="field-note">Use at least 8 characters.</span>
             </label>
 
-            <div className="auth-helper-text" style={{ marginTop: "-0.35rem", textAlign: "right" }}>
+            <div
+                className="auth-helper-text"
+                style={{ marginTop: "-0.35rem", textAlign: "right" }}
+            >
               <Link href="/portal/forgot-password">Forgot password?</Link>
             </div>
 
@@ -100,12 +131,19 @@ export default function PortalLoginPage() {
               Remember me on this device
             </label>
 
-            {errorMessage ? <p className="form-alert form-alert-error">{errorMessage}</p> : null}
+            {errorMessage ? (
+                <p className="form-alert form-alert-error">{errorMessage}</p>
+            ) : null}
 
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
+
+          <p className="auth-helper-text">
+            Need another confirmation email?{" "}
+            <Link href="/portal/resend-confirmation">Resend confirmation</Link>
+          </p>
 
           <p className="auth-helper-text">
             New customer? <Link href="/portal/register">Create an account</Link>

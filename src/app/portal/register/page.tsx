@@ -7,6 +7,27 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
 
+const CONFIRM_REDIRECT =
+    "https://centrumservice.net/portal/email-confirmed";
+
+function registrationErrorMessage(error: { message?: string; status?: number }) {
+  const message = (error.message ?? "").toLowerCase();
+
+  if (
+      error.status === 429 ||
+      message.includes("rate limit") ||
+      message.includes("too many")
+  ) {
+    return "Too many confirmation emails were requested. Please wait a minute and try again.";
+  }
+
+  if (message.includes("already registered")) {
+    return "We couldn't create a new account with those details. If you've used this email before, try signing in or resetting your password.";
+  }
+
+  return "We couldn't create the account right now. Please check your details and try again.";
+}
+
 export default function PortalRegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
@@ -49,11 +70,14 @@ export default function PortalRegisterPage() {
       return;
     }
 
-    const { data: { user, session }, error } = await supabase.auth.signUp({
+    const {
+      data: { user, session },
+      error,
+    } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
-        emailRedirectTo: "https://centrumservice.net/portal/email-confirmed",
+        emailRedirectTo: CONFIRM_REDIRECT,
         data: {
           full_name: normalizedName,
         },
@@ -61,13 +85,19 @@ export default function PortalRegisterPage() {
     });
 
     if (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(registrationErrorMessage(error));
       setIsSubmitting(false);
       return;
     }
 
     if (!session) {
-      setSuccessMessage("Account created. Check your email to confirm your account.");
+      // Supabase intentionally does not always reveal whether an address was
+      // already registered. Keep this response generic.
+      setSuccessMessage(
+          "Registration received. If this email needs confirmation, check your inbox. If you already confirmed it, you can sign in."
+      );
+      setPassword("");
+      setConfirmPassword("");
       setIsSubmitting(false);
       return;
     }
@@ -93,9 +123,11 @@ export default function PortalRegisterPage() {
                   placeholder="Your full name"
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
+                  autoComplete="name"
                   required
               />
             </label>
+
             <label>
               Email
               <input
@@ -103,9 +135,11 @@ export default function PortalRegisterPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
                   required
               />
             </label>
+
             <label>
               Password
               <input
@@ -113,10 +147,12 @@ export default function PortalRegisterPage() {
                   placeholder="Choose a password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
                   minLength={8}
                   required
               />
             </label>
+
             <label>
               Confirm password
               <input
@@ -124,13 +160,32 @@ export default function PortalRegisterPage() {
                   placeholder="Repeat your password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
+                  autoComplete="new-password"
                   minLength={8}
                   required
               />
             </label>
 
-            {errorMessage ? <p className="form-alert form-alert-error">{errorMessage}</p> : null}
-            {successMessage ? <p className="form-alert form-alert-success">{successMessage}</p> : null}
+            {errorMessage ? (
+                <p className="form-alert form-alert-error">{errorMessage}</p>
+            ) : null}
+
+            {successMessage ? (
+                <>
+                  <p className="form-alert form-alert-success">{successMessage}</p>
+                  <div className="section-actions">
+                    <Link href="/portal/login" className="btn btn-secondary">
+                      Sign In
+                    </Link>
+                    <Link
+                        href="/portal/resend-confirmation"
+                        className="btn btn-secondary"
+                    >
+                      Resend Confirmation
+                    </Link>
+                  </div>
+                </>
+            ) : null}
 
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting ? "Creating account..." : "Create account"}
@@ -139,7 +194,10 @@ export default function PortalRegisterPage() {
 
           <div className="auth-customization-box">
             <strong>Not sure which setup fits you?</strong>
-            <p>This optional guided request helps Centrum recommend a plan and installation setup. Existing customers can use it too.</p>
+            <p>
+              This optional guided request helps Centrum recommend a plan and
+              installation setup. Existing customers can use it too.
+            </p>
             <ServiceCustomizationWizard
                 defaults={{ fullName, email }}
                 triggerLabel="Help Me Customize My Service"
