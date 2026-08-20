@@ -909,6 +909,37 @@ export default function AdminPage() {
         </div>
       </div>
 
+      <div className="mobile-console-navigation" aria-label="Admin mobile navigation">
+        <label className="mobile-console-workspace">
+          <span>Workspace</span>
+          <select
+            value={activeWorkspace}
+            onChange={(event) => openWorkspace(event.target.value as AdminWorkspace)}
+            aria-label="Choose admin workspace"
+          >
+            <option value="overview">Overview</option>
+            <option value="customers">Customers ({users.length})</option>
+            <option value="network">Network ({networkSummary.downCount} down)</option>
+            <option value="support">Support ({supportAttentionCount})</option>
+            <option value="catalog">Service Catalog ({activePlanCount})</option>
+          </select>
+        </label>
+
+        <details className="mobile-console-tools">
+          <summary>Tools</summary>
+          <div className="mobile-console-tools-menu">
+            <Link href="/admin/live-chat" className="mobile-console-tool-link"><strong>Live Chat Inbox</strong><small>Customer conversations</small></Link>
+            <Link href="/admin/operations" className="mobile-console-tool-link"><strong>Customer Operations</strong><small>Payments & service requests</small></Link>
+            <Link href="/admin/revenue" className="mobile-console-tool-link"><strong>Revenue & Collections</strong><small>Paid, unpaid & analytics</small></Link>
+            <Link href="/admin/roles" className="mobile-console-tool-link"><strong>Staff & Roles</strong><small>Managers & administrators</small></Link>
+            <Link href="/admin/account" className="mobile-console-tool-link"><strong>Account Settings</strong><small>Password & admin session</small></Link>
+            <button type="button" className="mobile-console-tool-link mobile-console-signout" onClick={() => void signOutAdmin()} disabled={isSigningOut}>
+              <strong>{isSigningOut ? "Signing Out..." : "Sign Out"}</strong><small>End this admin session</small>
+            </button>
+          </div>
+        </details>
+      </div>
+
       <div className="admin-console-shell">
         <aside className="admin-console-sidebar" aria-label="Admin workspaces">
           <div className="admin-sidebar-section">

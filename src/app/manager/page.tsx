@@ -311,6 +311,33 @@ export default function ManagerPage() {
       {error ? <p className="form-alert form-alert-error manager-global-alert">{error}</p> : null}
       {message ? <p className="form-alert form-alert-success manager-global-alert">{message}</p> : null}
 
+      <div className="mobile-console-navigation" aria-label="Manager mobile navigation">
+        <label className="mobile-console-workspace">
+          <span>Workspace</span>
+          <select
+            value={workspace}
+            onChange={(event) => setWorkspace(event.target.value as ManagerWorkspace)}
+            aria-label="Choose manager workspace"
+          >
+            {nav.map(([key, label, , count]) => (
+              <option key={key} value={key}>{count !== null ? `${label} (${count})` : label}</option>
+            ))}
+          </select>
+        </label>
+
+        <details className="mobile-console-tools">
+          <summary>Tools</summary>
+          <div className="mobile-console-tools-menu">
+            <Link href="/manager/live-chat" className="mobile-console-tool-link"><strong>Live Chat Inbox</strong><small>Realtime customer chats</small></Link>
+            {role === "admin" ? <Link href="/admin" className="mobile-console-tool-link"><strong>Admin Console</strong><small>Return to full administration</small></Link> : null}
+            <Link href="/" className="mobile-console-tool-link"><strong>Homepage</strong><small>Open the public site</small></Link>
+            <button type="button" className="mobile-console-tool-link mobile-console-signout" onClick={() => void signOut()} disabled={signingOut}>
+              <strong>{signingOut ? "Signing Out..." : "Sign Out"}</strong><small>End this manager session</small>
+            </button>
+          </div>
+        </details>
+      </div>
+
       <div className="admin-console-shell manager-console-shell">
         <aside className="admin-console-sidebar" aria-label="Manager workspaces">
           <div className="admin-sidebar-section">
