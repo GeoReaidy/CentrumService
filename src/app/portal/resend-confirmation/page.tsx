@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const CONFIRM_REDIRECT =
   "https://centrumservice.net/portal/email-confirmed";
@@ -23,6 +24,9 @@ export default function PortalResendConfirmationPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -42,6 +46,10 @@ export default function PortalResendConfirmationPage() {
     }
 
     if (cooldown > 0) return;
+    if (turnstileEnabled && !captchaToken) {
+      setErrorMessage("Please complete the security check.");
+      return;
+    }
 
     setErrorMessage("");
     setSuccessMessage("");
@@ -59,10 +67,13 @@ export default function PortalResendConfirmationPage() {
       email: normalizedEmail,
       options: {
         emailRedirectTo: CONFIRM_REDIRECT,
+        captchaToken: captchaToken || undefined,
       },
     });
 
     if (error) {
+      setCaptchaToken("");
+      setCaptchaResetKey((value) => value + 1);
       setErrorMessage(
         isRateLimitError(error)
           ? "A confirmation email was requested too recently. Please wait a minute and try again."
@@ -100,6 +111,8 @@ export default function PortalResendConfirmationPage() {
               required
             />
           </label>
+
+          <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} />
 
           {errorMessage ? (
             <p className="form-alert form-alert-error">{errorMessage}</p>

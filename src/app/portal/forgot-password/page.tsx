@@ -1,18 +1,20 @@
+
 'use client';
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const RESET_REDIRECT =
-    "https://centrumservice.net/portal/reset-password";
+  "https://centrumservice.net/portal/reset-password";
 
 function isRateLimitError(error: { message?: string; status?: number }) {
   const message = (error.message ?? "").toLowerCase();
   return (
-      error.status === 429 ||
-      message.includes("rate limit") ||
-      message.includes("too many")
+    error.status === 429 ||
+    message.includes("rate limit") ||
+    message.includes("too many")
   );
 }
 
@@ -22,6 +24,9 @@ export default function PortalForgotPasswordPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -41,6 +46,10 @@ export default function PortalForgotPasswordPage() {
     }
 
     if (cooldown > 0) return;
+    if (turnstileEnabled && !captchaToken) {
+      setErrorMessage("Please complete the security check.");
+      return;
+    }
 
     setErrorMessage("");
     setSuccessMessage("");
@@ -54,17 +63,20 @@ export default function PortalForgotPasswordPage() {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(
-        normalizedEmail,
-        {
-          redirectTo: RESET_REDIRECT,
-        }
+      normalizedEmail,
+      {
+        redirectTo: RESET_REDIRECT,
+        captchaToken: captchaToken || undefined,
+      }
     );
 
     if (error) {
+      setCaptchaToken("");
+      setCaptchaResetKey((value) => value + 1);
       setErrorMessage(
-          isRateLimitError(error)
-              ? "Too many reset emails were requested. Please wait a minute and try again."
-              : "We couldn't request a reset email right now. Please try again in a moment."
+        isRateLimitError(error)
+          ? "Too many reset emails were requested. Please wait a minute and try again."
+          : "We couldn't request a reset email right now. Please try again in a moment."
       );
       setIsSubmitting(false);
       return;
@@ -72,67 +84,69 @@ export default function PortalForgotPasswordPage() {
 
     // Keep this generic so the page does not reveal whether an account exists.
     setSuccessMessage(
-        "If an account exists for that email, a password reset link is on its way. Check your inbox and spam folder."
+      "If an account exists for that email, a password reset link is on its way. Check your inbox and spam folder."
     );
     setCooldown(60);
     setIsSubmitting(false);
   }
 
   return (
-      <section className="auth-shell animate-fade-in">
-        <article className="card auth-card">
-          <h1>Reset Your Password</h1>
-          <p className="page-intro">
-            Enter the email linked to your Centrum account and we'll send a secure reset link.
-          </p>
+    <section className="auth-shell animate-fade-in">
+      <article className="card auth-card">
+        <h1>Reset Your Password</h1>
+        <p className="page-intro">
+          Enter the email linked to your Centrum account and we'll send a secure reset link.
+        </p>
 
-          <form className="form-grid" onSubmit={handleSubmit}>
-            <label>
-              Email
-              <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="email"
-                  required
-              />
-            </label>
+        <form className="form-grid" onSubmit={handleSubmit}>
+          <label>
+            Email
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+            />
+          </label>
 
-            {errorMessage ? (
-                <p className="form-alert form-alert-error">{errorMessage}</p>
-            ) : null}
+          <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} />
 
-            {successMessage ? (
-                <p className="form-alert form-alert-success">{successMessage}</p>
-            ) : null}
+          {errorMessage ? (
+            <p className="form-alert form-alert-error">{errorMessage}</p>
+          ) : null}
 
-            <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting || cooldown > 0}
-            >
-              {isSubmitting
-                  ? "Sending reset link..."
-                  : cooldown > 0
-                      ? `Try again in ${cooldown}s`
-                      : "Send Reset Link"}
-            </button>
-          </form>
+          {successMessage ? (
+            <p className="form-alert form-alert-success">{successMessage}</p>
+          ) : null}
 
-          <p className="auth-helper-text">
-            Remembered your password? <Link href="/portal/login">Back to sign in</Link>
-          </p>
-        </article>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={isSubmitting || cooldown > 0}
+          >
+            {isSubmitting
+              ? "Sending reset link..."
+              : cooldown > 0
+                ? `Try again in ${cooldown}s`
+                : "Send Reset Link"}
+          </button>
+        </form>
 
-        <aside className="card auth-aside">
-          <h2>Secure account recovery</h2>
-          <ul className="simple-list">
-            <li>The reset link is sent only to the account email</li>
-            <li>Choose a new password with at least 8 characters</li>
-            <li>Contact Centrum support if you no longer have access to your email</li>
-          </ul>
-        </aside>
-      </section>
+        <p className="auth-helper-text">
+          Remembered your password? <Link href="/portal/login">Back to sign in</Link>
+        </p>
+      </article>
+
+      <aside className="card auth-aside">
+        <h2>Secure account recovery</h2>
+        <ul className="simple-list">
+          <li>The reset link is sent only to the account email</li>
+          <li>Choose a new password with at least 8 characters</li>
+          <li>Contact Centrum support if you no longer have access to your email</li>
+        </ul>
+      </aside>
+    </section>
   );
 }

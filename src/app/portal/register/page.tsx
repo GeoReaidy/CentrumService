@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from "next/link";
@@ -6,17 +7,18 @@ import { FormEvent, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 const CONFIRM_REDIRECT =
-    "https://centrumservice.net/portal/email-confirmed";
+  "https://centrumservice.net/portal/email-confirmed";
 
 function registrationErrorMessage(error: { message?: string; status?: number }) {
   const message = (error.message ?? "").toLowerCase();
 
   if (
-      error.status === 429 ||
-      message.includes("rate limit") ||
-      message.includes("too many")
+    error.status === 429 ||
+    message.includes("rate limit") ||
+    message.includes("too many")
   ) {
     return "Too many confirmation emails were requested. Please wait a minute and try again.";
   }
@@ -37,6 +39,9 @@ export default function PortalRegisterPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,6 +64,11 @@ export default function PortalRegisterPage() {
       return;
     }
 
+    if (turnstileEnabled && !captchaToken) {
+      setErrorMessage("Please complete the security check.");
+      return;
+    }
+
     setErrorMessage("");
     setSuccessMessage("");
     setIsSubmitting(true);
@@ -78,6 +88,7 @@ export default function PortalRegisterPage() {
       password,
       options: {
         emailRedirectTo: CONFIRM_REDIRECT,
+        captchaToken: captchaToken || undefined,
         data: {
           full_name: normalizedName,
         },
@@ -85,6 +96,8 @@ export default function PortalRegisterPage() {
     });
 
     if (error) {
+      setCaptchaToken("");
+      setCaptchaResetKey((value) => value + 1);
       setErrorMessage(registrationErrorMessage(error));
       setIsSubmitting(false);
       return;
@@ -94,7 +107,7 @@ export default function PortalRegisterPage() {
       // Supabase intentionally does not always reveal whether an address was
       // already registered. Keep this response generic.
       setSuccessMessage(
-          "Registration received. If this email needs confirmation, check your inbox. If you already confirmed it, you can sign in."
+        "Registration received. If this email needs confirmation, check your inbox. If you already confirmed it, you can sign in."
       );
       setPassword("");
       setConfirmPassword("");
@@ -108,107 +121,109 @@ export default function PortalRegisterPage() {
   }
 
   return (
-      <section className="auth-shell animate-fade-in">
-        <article className="card auth-card">
-          <h1>Create Your Portal Account</h1>
-          <p className="page-intro">
-            Register to track support requests and manage your internet service details.
-          </p>
+    <section className="auth-shell animate-fade-in">
+      <article className="card auth-card">
+        <h1>Create Your Portal Account</h1>
+        <p className="page-intro">
+          Register to track support requests and manage your internet service details.
+        </p>
 
-          <form className="form-grid" onSubmit={handleSubmit}>
-            <label>
-              Full name
-              <input
-                  type="text"
-                  placeholder="Your full name"
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  autoComplete="name"
-                  required
-              />
-            </label>
-
-            <label>
-              Email
-              <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="email"
-                  required
-              />
-            </label>
-
-            <label>
-              Password
-              <input
-                  type="password"
-                  placeholder="Choose a password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-              />
-            </label>
-
-            <label>
-              Confirm password
-              <input
-                  type="password"
-                  placeholder="Repeat your password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-              />
-            </label>
-
-            {errorMessage ? (
-                <p className="form-alert form-alert-error">{errorMessage}</p>
-            ) : null}
-
-            {successMessage ? (
-                <>
-                  <p className="form-alert form-alert-success">{successMessage}</p>
-                  <div className="section-actions">
-                    <Link href="/portal/login" className="btn btn-secondary">
-                      Sign In
-                    </Link>
-                    <Link
-                        href="/portal/resend-confirmation"
-                        className="btn btn-secondary"
-                    >
-                      Resend Confirmation
-                    </Link>
-                  </div>
-                </>
-            ) : null}
-
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? "Creating account..." : "Create account"}
-            </button>
-          </form>
-
-          <div className="auth-customization-box">
-            <strong>Not sure which setup fits you?</strong>
-            <p>
-              This optional guided request helps Centrum recommend a plan and
-              installation setup. Existing customers can use it too.
-            </p>
-            <ServiceCustomizationWizard
-                defaults={{ fullName, email }}
-                triggerLabel="Help Me Customize My Service"
-                triggerClassName="btn btn-secondary"
+        <form className="form-grid" onSubmit={handleSubmit}>
+          <label>
+            Full name
+            <input
+              type="text"
+              placeholder="Your full name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              autoComplete="name"
+              required
             />
-          </div>
+          </label>
 
-          <p className="auth-helper-text">
-            Already have access? <Link href="/portal/login">Sign in</Link>
+          <label>
+            Email
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+            />
+          </label>
+
+          <label>
+            Password
+            <input
+              type="password"
+              placeholder="Choose a password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </label>
+
+          <label>
+            Confirm password
+            <input
+              type="password"
+              placeholder="Repeat your password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </label>
+
+          <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} />
+
+          {errorMessage ? (
+            <p className="form-alert form-alert-error">{errorMessage}</p>
+          ) : null}
+
+          {successMessage ? (
+            <>
+              <p className="form-alert form-alert-success">{successMessage}</p>
+              <div className="section-actions">
+                <Link href="/portal/login" className="btn btn-secondary">
+                  Sign In
+                </Link>
+                <Link
+                  href="/portal/resend-confirmation"
+                  className="btn btn-secondary"
+                >
+                  Resend Confirmation
+                </Link>
+              </div>
+            </>
+          ) : null}
+
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? "Creating account..." : "Create account"}
+          </button>
+        </form>
+
+        <div className="auth-customization-box">
+          <strong>Not sure which setup fits you?</strong>
+          <p>
+            This optional guided request helps Centrum recommend a plan and
+            installation setup. Existing customers can use it too.
           </p>
-        </article>
-      </section>
+          <ServiceCustomizationWizard
+            defaults={{ fullName, email }}
+            triggerLabel="Help Me Customize My Service"
+            triggerClassName="btn btn-secondary"
+          />
+        </div>
+
+        <p className="auth-helper-text">
+          Already have access? <Link href="/portal/login">Sign in</Link>
+        </p>
+      </article>
+    </section>
   );
 }
