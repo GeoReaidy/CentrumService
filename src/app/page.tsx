@@ -143,13 +143,13 @@ export default function HomePage() {
           </div>
 
           <h1>
-            Fiber-fast internet across North Bekaa
+            Local internet service across North Bekaa
           </h1>
 
           <p>
-            Centrum Service keeps your home and business connected
-            with reliable, high-speed internet backed by a real
-            local support team — day and night.
+            Centrum Service is a local internet provider for homes and businesses
+            across North Bekaa, with published plans, address-based coverage checks,
+            and a local support team.
           </p>
 
           <div className="cta-row">
@@ -168,13 +168,13 @@ export default function HomePage() {
           <div className="tech-stats">
 
             <div className="stat-item">
-              <span className="stat-value">99.9%</span>
-              <span className="stat-label">Uptime</span>
+              <span className="stat-value">Local</span>
+              <span className="stat-label">Support Team</span>
             </div>
 
             <div className="stat-item">
               <span className="stat-value">24/7</span>
-              <span className="stat-label">Support</span>
+              <span className="stat-label">Portal Access</span>
             </div>
 
             <div className="stat-item">
@@ -226,7 +226,7 @@ export default function HomePage() {
                 Speed
               </div>
 
-              <h2>High-Speed Fiber</h2>
+              <h2>High-Speed Internet</h2>
 
               <p>
                 Stream, game, and work from home without buffering,

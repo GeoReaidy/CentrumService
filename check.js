@@ -10,6 +10,7 @@ const root = path.join(process.cwd(), "src", "app");
 const expected = new Map([
   ["page.tsx", "HomePage"],
   ["admin/page.tsx", "AdminPage"],
+  ["admin/account/page.tsx", "AdminAccountPage"],
   ["admin/live-chat/page.tsx", "AdminLiveChatPage"],
   ["admin/operations/page.tsx", "AdminOperationsPage"],
   ["contact/page.tsx", "ContactPage"],

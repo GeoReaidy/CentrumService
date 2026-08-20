@@ -6,16 +6,20 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
+import { AsyncState } from "@/components/AsyncState";
+import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
 type Customer = { id: string; full_name: string | null; plan_id: number | null };
 type Plan = { id: number; name: string; monthly_price_usd: number };
-type Payment = { id: number; customer_id: string; amount_usd: number; paid_at: string; payment_method: string; reference: string | null; notes: string | null };
+type Payment = { id: number; customer_id: string | null; amount_usd: number; paid_at: string; payment_method: string; reference: string | null; notes: string | null };
 type Announcement = { id: number; title: string; body: string; is_published: boolean; starts_at: string; ends_at: string | null; created_at: string };
 type ServiceRequest = { id: number; customer_id: string; request_type: string; details: string; status: string; admin_note: string | null; created_at: string };
 type CustomizationRequest = { id: number; customer_id: string | null; full_name: string; email: string; phone: string | null; address: string | null; service_type: string; people_count: string | null; device_count: string | null; usage_types: string[]; budget_range: string | null; preferred_plan_name: string | null; current_provider: string | null; notes: string | null; status: "new" | "contacted" | "completed" | "closed"; email_sent_at: string | null; email_error: string | null; created_at: string };
 
 const requestStatuses = ["submitted", "reviewing", "scheduled", "completed", "declined", "cancelled"];
 const paymentMethods = ["cash", "bank_transfer", "card", "other"];
+
+type OperationsWorkspace = "overview" | "payments" | "announcements" | "requests" | "customization";
 
 export default function AdminOperationsPage() {
   const router = useRouter();
@@ -30,6 +34,7 @@ export default function AdminOperationsPage() {
   const [customizationRequests, setCustomizationRequests] = useState<CustomizationRequest[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [activeWorkspace, setActiveWorkspace] = useState<OperationsWorkspace>("overview");
 
   const [paymentCustomerId, setPaymentCustomerId] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -73,7 +78,7 @@ export default function AdminOperationsPage() {
       supabase.from("service_customization_requests").select("id,customer_id,full_name,email,phone,address,service_type,people_count,device_count,usage_types,budget_range,preferred_plan_name,current_provider,notes,status,email_sent_at,email_error,created_at").order("created_at", { ascending: false }).limit(300),
     ]);
     const firstError = customersResult.error || plansResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error;
-    if (firstError) setError(firstError.message);
+    if (firstError) { console.error("Admin operations data load failed", firstError); setError(toFriendlyErrorMessage(firstError, "Customer operations data could not be loaded right now.")); }
     else setError("");
     setCustomers((customersResult.data as Customer[] | null) ?? []);
     setPlans((plansResult.data as Plan[] | null) ?? []);
@@ -118,6 +123,20 @@ export default function AdminOperationsPage() {
   const customerMap = useMemo(() => new Map(customers.map((customer) => [customer.id, customer])), [customers]);
   const planMap = useMemo(() => new Map(plans.map((plan) => [plan.id, plan])), [plans]);
 
+  const operationsSummary = useMemo(() => {
+    const totalPayments = payments.reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+    const publishedAnnouncements = announcements.filter((announcement) => announcement.is_published).length;
+    const openRequests = requests.filter((request) => !["completed", "declined", "cancelled"].includes(request.status)).length;
+    const pendingCustomizations = customizationRequests.filter((request) => request.status === "new" || request.status === "contacted").length;
+
+    return {
+      totalPayments,
+      publishedAnnouncements,
+      openRequests,
+      pendingCustomizations,
+    };
+  }, [announcements, customizationRequests, payments, requests]);
+
   const paymentCustomerOptions = useMemo(() => {
     const query = paymentCustomerSearch.trim().toLowerCase();
     if (!query) return customers;
@@ -133,10 +152,10 @@ export default function AdminOperationsPage() {
       if (paymentMethodFilter !== "all" && payment.payment_method !== paymentMethodFilter) return false;
       if (!query) return true;
 
-      const customer = customerMap.get(payment.customer_id);
+      const customer = payment.customer_id ? customerMap.get(payment.customer_id) : undefined;
       const haystack = [
         customer?.full_name ?? "",
-        payment.customer_id,
+        payment.customer_id ?? "",
         payment.payment_method,
         payment.reference ?? "",
         payment.notes ?? "",
@@ -151,8 +170,8 @@ export default function AdminOperationsPage() {
       if (paymentSort === "amount_high") return Number(b.amount_usd) - Number(a.amount_usd);
       if (paymentSort === "amount_low") return Number(a.amount_usd) - Number(b.amount_usd);
       if (paymentSort === "customer_az") {
-        const aName = customerMap.get(a.customer_id)?.full_name ?? a.customer_id;
-        const bName = customerMap.get(b.customer_id)?.full_name ?? b.customer_id;
+        const aName = a.customer_id ? (customerMap.get(a.customer_id)?.full_name ?? a.customer_id) : "Deleted account";
+        const bName = b.customer_id ? (customerMap.get(b.customer_id)?.full_name ?? b.customer_id) : "Deleted account";
         return aName.localeCompare(bName);
       }
       return new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime();
@@ -185,7 +204,8 @@ export default function AdminOperationsPage() {
     }).sort((a, b) => customizationSort === "oldest" ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime() : new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [customizationRequests, customizationSearch, customizationStatusFilter, customizationSort]);
 
-  function customerLabel(customerId: string) {
+  function customerLabel(customerId: string | null) {
+    if (!customerId) return "Deleted account";
     const customer = customerMap.get(customerId);
     return customer?.full_name || `${customerId.slice(0, 8)}…`;
   }
@@ -215,7 +235,7 @@ export default function AdminOperationsPage() {
       reference: paymentReference.trim() || null,
       notes: paymentNotes.trim() || null,
     });
-    if (insertError) setError(insertError.message);
+    if (insertError) setError(toFriendlyErrorMessage(insertError, "The payment could not be recorded. Please try again."));
     else {
       setMessage("Payment recorded.");
       setPaymentReference("");
@@ -228,7 +248,7 @@ export default function AdminOperationsPage() {
   async function deletePayment(payment: Payment) {
     if (!supabase || !window.confirm(`Delete the $${Number(payment.amount_usd).toFixed(2)} payment record?`)) return;
     const { error: deleteError } = await supabase.from("payments").delete().eq("id", payment.id);
-    if (deleteError) setError(deleteError.message);
+    if (deleteError) setError(toFriendlyErrorMessage(deleteError, "The payment could not be deleted. Please try again."));
     else await fetchAll();
   }
 
@@ -244,7 +264,7 @@ export default function AdminOperationsPage() {
       is_published: announcementPublished,
       ends_at: announcementEndsAt ? new Date(`${announcementEndsAt}T23:59:59`).toISOString() : null,
     });
-    if (insertError) setError(insertError.message);
+    if (insertError) setError(toFriendlyErrorMessage(insertError, "The announcement could not be created. Please try again."));
     else {
       setAnnouncementTitle("");
       setAnnouncementBody("");
@@ -259,14 +279,14 @@ export default function AdminOperationsPage() {
   async function toggleAnnouncement(announcement: Announcement) {
     if (!supabase) return;
     const { error: updateError } = await supabase.from("announcements").update({ is_published: !announcement.is_published }).eq("id", announcement.id);
-    if (updateError) setError(updateError.message);
+    if (updateError) setError(toFriendlyErrorMessage(updateError, "The announcement could not be changed. Please try again."));
     else await fetchAll();
   }
 
   async function deleteAnnouncement(announcement: Announcement) {
     if (!supabase || !window.confirm(`Delete “${announcement.title}”?`)) return;
     const { error: deleteError } = await supabase.from("announcements").delete().eq("id", announcement.id);
-    if (deleteError) setError(deleteError.message);
+    if (deleteError) setError(toFriendlyErrorMessage(deleteError, "The announcement could not be deleted. Please try again."));
     else await fetchAll();
   }
 
@@ -279,7 +299,7 @@ export default function AdminOperationsPage() {
       status: draft.status,
       admin_note: draft.admin_note.trim() || null,
     }).eq("id", request.id);
-    if (updateError) setError(updateError.message);
+    if (updateError) setError(toFriendlyErrorMessage(updateError, "The service request could not be updated. Please try again."));
     else {
       setMessage(`Service request #${request.id} updated.`);
       await fetchAll();
@@ -292,7 +312,7 @@ export default function AdminOperationsPage() {
     setSavingCustomizationId(request.id);
     setError("");
     const { error: updateError } = await supabase.from("service_customization_requests").update({ status, updated_at: new Date().toISOString() }).eq("id", request.id);
-    if (updateError) setError(updateError.message);
+    if (updateError) setError(toFriendlyErrorMessage(updateError, "The customization request could not be updated. Please try again."));
     else await fetchAll();
     setSavingCustomizationId(null);
   }
@@ -301,32 +321,140 @@ export default function AdminOperationsPage() {
     if (!supabase || !window.confirm(`Delete customization request #${request.id} from ${request.full_name}?`)) return;
     setSavingCustomizationId(request.id);
     const { error: deleteError } = await supabase.from("service_customization_requests").delete().eq("id", request.id);
-    if (deleteError) setError(deleteError.message);
+    if (deleteError) setError(toFriendlyErrorMessage(deleteError, "The customization request could not be deleted. Please try again."));
     else await fetchAll();
     setSavingCustomizationId(null);
   }
 
-  if (loading) return <section><h1>Customer Operations</h1><p className="page-intro">Checking admin access...</p></section>;
-  if (!supabase) return <section><h1>Customer Operations</h1><p className="page-intro">Supabase is not configured.</p></section>;
-  if (!account) return <section><h1>Customer Operations</h1><p className="page-intro">Redirecting...</p></section>;
+  if (loading) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Customer Operations" title="Loading operations" message="Getting billing, announcements, requests, and customer records." /></section>;
+  if (!supabase) return <section className="admin-page"><AsyncState kind="error" eyebrow="Customer Operations" title="Operations are temporarily unavailable" message="Centrum couldn't connect to the backend. Please try again shortly." /></section>;
+  if (!account) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Customer Operations" title="Redirecting" message="Checking your admin session." /></section>;
 
   return (
-    <section className="animate-fade-in admin-page">
-      <div className="admin-header">
+    <section className="animate-fade-in admin-page operations-page">
+      <div className="admin-header operations-header">
         <div>
-          <div className="badge badge-pulse page-badge">Centrum-owned Data</div>
-          <h1>Customer Operations</h1>
-          <p className="page-intro">Billing records, customer notices, and service requests — no ISP or RADIUS API required.</p>
+          <div className="badge badge-pulse page-badge">Customer Operations</div>
+          <h1>Operations Center</h1>
+          <p className="page-intro">Billing, notices, service requests, and plan recommendations — separated into focused workspaces.</p>
         </div>
-        <Link href="/admin" className="btn btn-secondary">Back to Admin</Link>
+        <div className="section-actions operations-header-actions">
+          <Link href="/admin" className="btn btn-secondary">Back to Admin</Link>
+        </div>
       </div>
 
-      {error ? <p className="form-alert form-alert-error">{error}</p> : null}
       {message ? <p className="form-alert form-alert-success">{message}</p> : null}
 
+      <div className="operations-console-shell">
+        <aside className="operations-sidebar">
+          <div className="admin-sidebar-section">
+            <span className="admin-sidebar-eyebrow">Operations</span>
+            <div className="admin-submenu">
+              <button type="button" className={`admin-submenu-item ${activeWorkspace === "overview" ? "is-active" : ""}`} onClick={() => setActiveWorkspace("overview")}>
+                <span><strong>Overview</strong><small>At a glance</small></span>
+              </button>
+              <button type="button" className={`admin-submenu-item ${activeWorkspace === "payments" ? "is-active" : ""}`} onClick={() => setActiveWorkspace("payments")}>
+                <span><strong>Payments</strong><small>Billing records</small></span><b>{payments.length}</b>
+              </button>
+              <button type="button" className={`admin-submenu-item ${activeWorkspace === "announcements" ? "is-active" : ""}`} onClick={() => setActiveWorkspace("announcements")}>
+                <span><strong>Announcements</strong><small>Customer notices</small></span><b>{operationsSummary.publishedAnnouncements}</b>
+              </button>
+              <button type="button" className={`admin-submenu-item ${activeWorkspace === "requests" ? "is-active" : ""}`} onClick={() => setActiveWorkspace("requests")}>
+                <span><strong>Service Requests</strong><small>Customer requests</small></span><b>{operationsSummary.openRequests}</b>
+              </button>
+              <button type="button" className={`admin-submenu-item ${activeWorkspace === "customization" ? "is-active" : ""}`} onClick={() => setActiveWorkspace("customization")}>
+                <span><strong>Recommendations</strong><small>Plan matching</small></span><b>{operationsSummary.pendingCustomizations}</b>
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-sidebar-section operations-sidebar-tools">
+            <span className="admin-sidebar-eyebrow">Admin Tools</span>
+            <Link href="/admin/live-chat" className="admin-tool-link">
+              <span><strong>Live Chat Inbox</strong><small>Open conversations</small></span>
+              <span>→</span>
+            </Link>
+            <Link href="/admin" className="admin-tool-link">
+              <span><strong>Admin Console</strong><small>Customers & network</small></span>
+              <span>→</span>
+            </Link>
+          </div>
+        </aside>
+
+        <div className="operations-console-content">
+          {error ? (
+            <AsyncState kind="error" eyebrow="Operations Data" title="That operation needs another try" message={error} onRetry={() => void fetchAll()} retryLabel="Retry Operations Data" />
+          ) : null}
+
+          {activeWorkspace === "overview" ? (
+            <div className="operations-overview">
+              <div className="admin-workspace-heading">
+                <div>
+                  <div className="badge card-badge">Overview</div>
+                  <h2>Customer Operations</h2>
+                  <p className="page-intro">The things that need attention without every form and list competing for space.</p>
+                </div>
+              </div>
+
+              <div className="operations-summary-grid">
+                <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("payments")}>
+                  <span className="admin-overview-label">Payments Loaded</span>
+                  <strong>{payments.length}</strong>
+                  <small>${operationsSummary.totalPayments.toFixed(2)} across loaded payment records.</small>
+                  <span className="admin-overview-action">Open payments →</span>
+                </button>
+
+                <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("announcements")}>
+                  <span className="admin-overview-label">Published Notices</span>
+                  <strong>{operationsSummary.publishedAnnouncements}</strong>
+                  <small>{announcements.length} announcement{announcements.length === 1 ? "" : "s"} loaded in total.</small>
+                  <span className="admin-overview-action">Manage notices →</span>
+                </button>
+
+                <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("requests")}>
+                  <span className="admin-overview-label">Open Service Requests</span>
+                  <strong>{operationsSummary.openRequests}</strong>
+                  <small>{requests.length} customer service request{requests.length === 1 ? "" : "s"} loaded.</small>
+                  <span className="admin-overview-action">Review requests →</span>
+                </button>
+
+                <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("customization")}>
+                  <span className="admin-overview-label">Plan Follow-ups</span>
+                  <strong>{operationsSummary.pendingCustomizations}</strong>
+                  <small>New or contacted recommendation requests still needing follow-up.</small>
+                  <span className="admin-overview-action">Open recommendations →</span>
+                </button>
+              </div>
+
+              <article className="card operations-overview-guide">
+                <div>
+                  <div className="badge card-badge">Workflow</div>
+                  <h2>Keep each job in its own workspace</h2>
+                </div>
+                <div className="operations-overview-guide-grid">
+                  <div><strong>Payments</strong><span>Record a payment and check billing history.</span></div>
+                  <div><strong>Announcements</strong><span>Publish customer-facing notices without digging through billing data.</span></div>
+                  <div><strong>Service Requests</strong><span>Review requests and update status or customer-visible notes.</span></div>
+                  <div><strong>Recommendations</strong><span>Follow up on plan/customization questionnaires.</span></div>
+                </div>
+              </article>
+            </div>
+          ) : null}
+
+          {activeWorkspace === "payments" ? (
+            <div className="operations-workspace">
+              <div className="admin-workspace-heading">
+                <div>
+                  <div className="badge card-badge">Billing Workspace</div>
+                  <h2>Payments</h2>
+                  <p className="page-intro">Record payments and search history without the other operations panels below it.</p>
+                </div>
+                <span className="status-pill status-active">{payments.length} loaded</span>
+              </div>
       <article className="card admin-section">
         <div className="badge card-badge">Billing</div>
-        <h2>Record a Payment</h2>
+        <h2>Payments</h2>
+        <p className="page-intro">Record customer payments and review billing history from one workspace.</p>
         <form className="form-grid" onSubmit={addPayment}>
           <div className="form-four-col">
             <label>Customer
@@ -394,10 +522,23 @@ export default function AdminOperationsPage() {
           )) : <p className="empty-state">No payment records match these filters.</p>}
         </div>
       </article>
+            </div>
+          ) : null}
 
+          {activeWorkspace === "announcements" ? (
+            <div className="operations-workspace">
+              <div className="admin-workspace-heading">
+                <div>
+                  <div className="badge card-badge">Customer Communications</div>
+                  <h2>Announcements</h2>
+                  <p className="page-intro">Create and manage customer-facing notices.</p>
+                </div>
+                <span className="status-pill status-active">{operationsSummary.publishedAnnouncements} published</span>
+              </div>
       <article className="card admin-section">
         <div className="badge card-badge">Customer Notices</div>
         <h2>Announcements</h2>
+        <p className="page-intro">Publish, hide, and manage messages shown to customers.</p>
         <form className="form-grid" onSubmit={addAnnouncement}>
           <label>Title<input value={announcementTitle} onChange={(event) => setAnnouncementTitle(event.target.value)} placeholder="e.g. Planned maintenance" required /></label>
           <label>Message<textarea rows={4} value={announcementBody} onChange={(event) => setAnnouncementBody(event.target.value)} placeholder="What customers need to know" required /></label>
@@ -422,7 +563,19 @@ export default function AdminOperationsPage() {
           {!visibleAnnouncements.length ? <p className="empty-state">No announcements match the current search or filters.</p> : null}
         </div>
       </article>
+            </div>
+          ) : null}
 
+          {activeWorkspace === "requests" ? (
+            <div className="operations-workspace">
+              <div className="admin-workspace-heading">
+                <div>
+                  <div className="badge card-badge">Service Desk</div>
+                  <h2>Service Requests</h2>
+                  <p className="page-intro">Work through customer requests and update their visible status.</p>
+                </div>
+                <span className="status-pill status-active">{operationsSummary.openRequests} open</span>
+              </div>
       <article className="card admin-section">
         <div className="badge card-badge">Service Desk</div>
         <h2>Customer Service Requests</h2>
@@ -448,10 +601,22 @@ export default function AdminOperationsPage() {
           }) : <p className="empty-state">No service requests match the current search or filters.</p>}
         </div>
       </article>
+            </div>
+          ) : null}
 
+          {activeWorkspace === "customization" ? (
+            <div className="operations-workspace">
+              <div className="admin-workspace-heading">
+                <div>
+                  <div className="badge card-badge">Service Match</div>
+                  <h2>Plan Recommendations</h2>
+                  <p className="page-intro">Handle recommendation questionnaires and follow-ups separately from normal service requests.</p>
+                </div>
+                <span className="status-pill status-active">{operationsSummary.pendingCustomizations} pending</span>
+              </div>
       <article className="card admin-section">
         <div className="badge card-badge">Service Match</div>
-        <h2>Customization Requests</h2>
+        <h2>Plan Recommendations</h2>
         <p className="page-intro">Optional plan/setup questionnaires from new and existing customers. Email delivery is tracked here too.</p>
         <div className="list-toolbar list-toolbar-three">
           <input className="admin-search" value={customizationSearch} onChange={(event) => setCustomizationSearch(event.target.value)} placeholder="Search name, email, address, plan or usage..." />
@@ -479,6 +644,10 @@ export default function AdminOperationsPage() {
           )) : <p className="empty-state">No customization requests match the current search or filters.</p>}
         </div>
       </article>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </section>
   );
 }

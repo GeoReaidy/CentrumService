@@ -5,6 +5,8 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { AsyncState } from "@/components/AsyncState";
+import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
 type ChatSession = {
   id: string;
@@ -42,8 +44,8 @@ export default function CustomerLiveChatPage() {
       .select("id,session_id,sender_id,is_admin,message,created_at")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true });
-    if (fetchError) setError(fetchError.message);
-    else setMessages((data as ChatMessage[] | null) ?? []);
+    if (fetchError) { console.error("Customer live chat messages load failed", fetchError); setError(toFriendlyErrorMessage(fetchError, "Chat messages could not be loaded right now.")); }
+    else { setError(""); setMessages((data as ChatMessage[] | null) ?? []); }
   }, [supabase]);
 
   const findOrCreateSession = useCallback(async (userId: string) => {
@@ -87,7 +89,7 @@ export default function CustomerLiveChatPage() {
         setSession(nextSession);
         await fetchMessages(nextSession.id);
       } catch (cause) {
-        if (mounted) setError(cause instanceof Error ? cause.message : "Could not start live chat.");
+        if (mounted) { console.error("Customer live chat start failed", cause); setError(toFriendlyErrorMessage(cause, "Could not start live chat right now.")); }
       }
       if (mounted) setLoading(false);
     }
@@ -106,7 +108,11 @@ export default function CustomerLiveChatPage() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_chat_sessions", filter: `id=eq.${session.id}` }, (payload) => {
         setSession(payload.new as ChatSession);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setError("Live updates are temporarily unavailable. You can retry the conversation or refresh the page.");
+        }
+      });
 
     return () => { void supabase.removeChannel(channel); };
   }, [fetchMessages, session, supabase]);
@@ -125,7 +131,7 @@ export default function CustomerLiveChatPage() {
       session_id: session.id,
       message: text,
     });
-    if (sendError) setError(sendError.message);
+    if (sendError) setError(toFriendlyErrorMessage(sendError, "Your message could not be sent. Please try again."));
     else {
       setDraft("");
       await fetchMessages(session.id);
@@ -136,7 +142,7 @@ export default function CustomerLiveChatPage() {
   async function closeChat() {
     if (!supabase || !session || !window.confirm("End this live chat? You can start a new one later.")) return;
     const { error: closeError } = await supabase.from("live_chat_sessions").update({ status: "closed" }).eq("id", session.id);
-    if (closeError) setError(closeError.message);
+    if (closeError) setError(toFriendlyErrorMessage(closeError, "The chat could not be closed. Please try again."));
     else setSession({ ...session, status: "closed" });
   }
 
@@ -149,13 +155,14 @@ export default function CustomerLiveChatPage() {
       setSession(nextSession);
       if (nextSession) await fetchMessages(nextSession.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not start a new chat.");
+      console.error("Customer new live chat failed", cause);
+      setError(toFriendlyErrorMessage(cause, "Could not start a new chat right now."));
     }
     setLoading(false);
   }
 
-  if (loading) return <section><h1>Live Chat</h1><p className="page-intro">Connecting to Centrum Support...</p></section>;
-  if (!supabase) return <section><h1>Live Chat</h1><p className="page-intro">Supabase is not configured.</p></section>;
+  if (loading) return <section className="live-chat-page"><AsyncState kind="loading" eyebrow="Centrum Live Support" title="Connecting to support" message="Opening your conversation and loading recent messages." /></section>;
+  if (!supabase) return <section className="live-chat-page"><AsyncState kind="error" eyebrow="Live Support" title="Live chat is temporarily unavailable" message="Centrum couldn't connect to live support right now." href="/contact" hrefLabel="Contact Centrum" /></section>;
 
   return (
     <section className="animate-fade-in live-chat-page">
@@ -171,7 +178,7 @@ export default function CustomerLiveChatPage() {
         </div>
       </div>
 
-      {error && <p className="form-alert form-alert-error">{error}</p>}
+      {error ? <AsyncState kind="error" eyebrow="Live Chat" title="The conversation needs another try" message={error} onRetry={() => session ? void fetchMessages(session.id) : void startNewChat()} retryLabel="Retry Chat" /> : null}
 
       <article className="card chat-shell">
         <div className="chat-status-row">

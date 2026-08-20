@@ -4,6 +4,8 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
+import { AsyncState } from "@/components/AsyncState";
+import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import type { RealtimePostgresChangesPayload, User } from "@supabase/supabase-js";
 
 type TicketUpdate = {
@@ -47,6 +49,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
   const [actionError, setActionError] = useState("");
 
   const fetchTicketDetails = useCallback(async () => {
+    setActionError("");
     if (!supabase || !Number.isFinite(ticketId)) {
       setIsLoading(false);
       return;
@@ -69,9 +72,11 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
     if (updatesResult.data) setUpdates(updatesResult.data as TicketUpdate[]);
 
     if (ticketResult.error && ticketResult.error.code !== "PGRST116") {
-      setActionError(ticketResult.error.message);
+      console.error("Ticket details load failed", ticketResult.error);
+      setActionError(toFriendlyErrorMessage(ticketResult.error, "This ticket could not be loaded right now."));
     } else if (updatesResult.error) {
-      setActionError(updatesResult.error.message);
+      console.error("Ticket updates load failed", updatesResult.error);
+      setActionError(toFriendlyErrorMessage(updatesResult.error, "Ticket updates could not be loaded right now."));
     }
 
     setIsLoading(false);
@@ -146,7 +151,11 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
           if (incoming?.id) setTicket(incoming);
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setActionError("Live ticket updates are temporarily unavailable. Retry the ticket or refresh the page.");
+        }
+      });
 
     return () => {
       void supabase.removeChannel(channel);
@@ -171,7 +180,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
       .single();
 
     if (error) {
-      setMessageError(error.message);
+      setMessageError(toFriendlyErrorMessage(error, "Your update could not be sent. Please try again."));
       setIsSending(false);
       return;
     }
@@ -190,7 +199,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
         .single();
 
       if (statusError) {
-        setActionError(`Update sent, but ticket status could not be changed: ${statusError.message}`);
+        setActionError(toFriendlyErrorMessage(statusError, "Your update was sent, but the ticket status could not be refreshed."));
       } else if (updatedTicket) {
         setTicket(updatedTicket as TicketData);
       }
@@ -211,7 +220,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
       .single();
 
     if (error) {
-      setActionError(error.message);
+      setActionError(toFriendlyErrorMessage(error, "The ticket status could not be changed. Please try again."));
       return;
     }
 
@@ -219,30 +228,25 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
   }
 
   if (isLoading || !authReady) {
-    return (
-      <section>
-        <h1>Ticket Dashboard</h1>
-        <p className="page-intro">Loading ticket...</p>
-      </section>
-    );
+    return <section><AsyncState kind="loading" eyebrow="Support Ticket" title="Loading ticket" message="Checking access and loading the latest support updates." /></section>;
   }
 
   if (!user) {
-    return (
-      <section>
-        <h1>Sign In Required</h1>
-        <p className="page-intro">Please sign in before viewing or updating a support ticket.</p>
-        <Link href="/portal/login" className="btn btn-primary">Sign In</Link>
-      </section>
-    );
+    return <section><AsyncState kind="empty" eyebrow="Sign In Required" title="Sign in to view this ticket" message="Support tickets are private to your account." href="/portal/login" hrefLabel="Sign In" /></section>;
   }
 
   if (!ticket) {
     return (
       <section>
-        <h1>Ticket Not Found</h1>
-        <p className="page-intro">The requested incident report could not be located or you do not have access to it.</p>
-        {actionError && <p className="form-alert form-alert-error">{actionError}</p>}
+        <AsyncState
+          kind={actionError ? "error" : "empty"}
+          eyebrow="Support Ticket"
+          title={actionError ? "We couldn't load this ticket" : "Ticket not found"}
+          message={actionError || "The requested ticket doesn't exist or your account doesn't have access to it."}
+          onRetry={actionError ? () => void fetchTicketDetails() : undefined}
+          href="/portal/dashboard"
+          hrefLabel="Back to Dashboard"
+        />
       </section>
     );
   }
@@ -254,6 +258,8 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
       <p className="page-intro">
         Status: <span className={`status-pill status-${ticket.status}`}>{ticket.status.replace("_", " ")}</span>
       </p>
+
+      {actionError ? <AsyncState kind="error" eyebrow="Ticket Data" title="Some ticket information needs another try" message={actionError} onRetry={() => void fetchTicketDetails()} retryLabel="Retry Ticket" /> : null}
 
       <div className="section-grid">
         <article className="card" style={{ gridColumn: "span 2" }}>

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
+import { AsyncState } from "@/components/AsyncState";
+import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
 type ChatSession = { id: string; customer_id: string; status: "open" | "closed"; started_at: string; updated_at: string };
 type ChatMessage = { id: number; session_id: string; sender_id: string; is_admin: boolean; message: string; created_at: string };
@@ -34,7 +36,7 @@ export default function AdminLiveChatPage() {
       supabase.from("profiles").select("id,full_name,phone").order("full_name", { ascending: true }).limit(300),
     ]);
     const firstError = sessionsResult.error || customersResult.error;
-    if (firstError) setError(firstError.message);
+    if (firstError) { console.error("Admin live chat inbox load failed", firstError); setError(toFriendlyErrorMessage(firstError, "Live chat conversations could not be loaded right now.")); }
     else setError("");
     const nextSessions = (sessionsResult.data as ChatSession[] | null) ?? [];
     setSessions(nextSessions);
@@ -45,8 +47,8 @@ export default function AdminLiveChatPage() {
   const fetchMessages = useCallback(async (sessionId: string) => {
     if (!supabase) return;
     const { data, error: fetchError } = await supabase.from("live_chat_messages").select("id,session_id,sender_id,is_admin,message,created_at").eq("session_id", sessionId).order("created_at", { ascending: true });
-    if (fetchError) setError(fetchError.message);
-    else setMessages((data as ChatMessage[] | null) ?? []);
+    if (fetchError) { console.error("Admin live chat messages load failed", fetchError); setError(toFriendlyErrorMessage(fetchError, "Conversation messages could not be loaded right now.")); }
+    else { setError(""); setMessages((data as ChatMessage[] | null) ?? []); }
   }, [supabase]);
 
   useEffect(() => {
@@ -82,7 +84,11 @@ export default function AdminLiveChatPage() {
         const row = (payload.new || payload.old) as Partial<ChatMessage>;
         if (selectedId && row.session_id === selectedId) void fetchMessages(selectedId);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setError("Live chat updates are temporarily unavailable. Retry the chat data or refresh the page.");
+        }
+      });
     return () => { void supabase.removeChannel(channel); };
   }, [fetchMessages, fetchSessions, selectedId, supabase]);
 
@@ -111,7 +117,7 @@ export default function AdminLiveChatPage() {
     setSending(true);
     setError("");
     const { error: sendError } = await supabase.from("live_chat_messages").insert({ session_id: selected.id, message: draft.trim() });
-    if (sendError) setError(sendError.message);
+    if (sendError) setError(toFriendlyErrorMessage(sendError, "The reply could not be sent. Please try again."));
     else { setDraft(""); await fetchMessages(selected.id); await fetchSessions(); }
     setSending(false);
   }
@@ -119,13 +125,13 @@ export default function AdminLiveChatPage() {
   async function setChatStatus(status: "open" | "closed") {
     if (!supabase || !selected) return;
     const { error: updateError } = await supabase.from("live_chat_sessions").update({ status }).eq("id", selected.id);
-    if (updateError) setError(updateError.message);
+    if (updateError) setError(toFriendlyErrorMessage(updateError, "The chat status could not be changed. Please try again."));
     else await fetchSessions();
   }
 
-  if (loading) return <section><h1>Live Chat Inbox</h1><p className="page-intro">Checking admin access...</p></section>;
-  if (!supabase) return <section><h1>Live Chat Inbox</h1><p className="page-intro">Supabase is not configured.</p></section>;
-  if (!account) return <section><h1>Live Chat Inbox</h1><p className="page-intro">Redirecting...</p></section>;
+  if (loading) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Support Desk" title="Loading live chat inbox" message="Checking admin access and loading customer conversations." /></section>;
+  if (!supabase) return <section className="admin-page"><AsyncState kind="error" eyebrow="Support Desk" title="Live chat administration is unavailable" message="Centrum couldn't connect to the backend right now." /></section>;
+  if (!account) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Support Desk" title="Redirecting" message="Checking your admin session." /></section>;
 
   return (
     <section className="animate-fade-in admin-page">
@@ -141,26 +147,44 @@ export default function AdminLiveChatPage() {
         </div>
       </div>
 
-      {error && <p className="form-alert form-alert-error">{error}</p>}
+      {error ? <AsyncState kind="error" eyebrow="Live Chat Inbox" title="Chat data needs another try" message={error} onRetry={() => void Promise.all([fetchSessions(), selectedId ? fetchMessages(selectedId) : Promise.resolve()])} retryLabel="Retry Chat Data" /> : null}
 
-      <div className="admin-chat-layout">
-        <aside className="card admin-chat-inbox">
-          <div className="admin-chat-inbox-heading">
-            <div>
-              <div className="badge card-badge">Conversations</div>
-              <h2>Customer chats</h2>
-            </div>
+      <article className="card admin-chat-toolbar-card">
+        <div className="admin-chat-toolbar-summary">
+          <div>
+            <div className="badge card-badge">Conversations</div>
+            <h2>Customer chats</h2>
+          </div>
+          <div className="admin-chat-toolbar-counts">
             <span className="badge">{sessions.filter((item) => item.status === "open").length} open</span>
+            <span className="badge">{sessions.length} total</span>
+          </div>
+        </div>
+
+        <div className="admin-chat-filterbar">
+          <input className="admin-search" value={sessionSearch} onChange={(event) => setSessionSearch(event.target.value)} placeholder="Search customer or phone..." />
+          <select value={sessionStatusFilter} onChange={(event) => setSessionStatusFilter(event.target.value)}><option value="all">All chats</option><option value="open">Open</option><option value="closed">Closed</option></select>
+          <select value={sessionSort} onChange={(event) => setSessionSort(event.target.value)}><option value="recent">Most recent</option><option value="oldest">Oldest activity</option><option value="name">Customer A–Z</option></select>
+        </div>
+      </article>
+
+      <div className="admin-chat-layout admin-chat-layout-redesigned">
+        <aside className={`card admin-chat-inbox admin-chat-inbox-redesigned ${visibleSessions.length === 0 ? "admin-chat-inbox-empty" : ""}`}>
+          <div className="admin-chat-inbox-heading admin-chat-inbox-heading-compact">
+            <div>
+              <div className="badge card-badge">Inbox</div>
+              <h2>Conversations</h2>
+            </div>
+            <span className="status-pill status-active">{visibleSessions.length} shown</span>
           </div>
 
-          <div className="list-toolbar chat-list-toolbar">
-            <input className="admin-search" value={sessionSearch} onChange={(event) => setSessionSearch(event.target.value)} placeholder="Search customer or phone..." />
-            <select value={sessionStatusFilter} onChange={(event) => setSessionStatusFilter(event.target.value)}><option value="all">All chats</option><option value="open">Open</option><option value="closed">Closed</option></select>
-            <select value={sessionSort} onChange={(event) => setSessionSort(event.target.value)}><option value="recent">Most recent</option><option value="oldest">Oldest activity</option><option value="name">Customer A–Z</option></select>
-          </div>
-
-          <div className="admin-chat-session-list fixed-scroll-list">
-            {visibleSessions.length === 0 ? <p className="page-intro">No chats match the current search or filters.</p> : visibleSessions.map((item) => (
+          <div className={`admin-chat-session-list fixed-scroll-list ${visibleSessions.length === 0 ? "admin-chat-session-list-empty" : ""}`}>
+            {visibleSessions.length === 0 ? (
+              <div className="chat-empty-state admin-chat-inbox-empty-state">
+                <strong>No conversations found</strong>
+                <p>No chats match the current search or filters.</p>
+              </div>
+            ) : visibleSessions.map((item) => (
               <button type="button" className={`admin-chat-session ${selectedId === item.id ? "active" : ""}`} onClick={() => setSelectedId(item.id)} key={item.id}>
                 <span className={`network-dot ${item.status === "open" ? "status-dot-optimal" : "status-dot-partial-outage"}`} />
                 <span>
@@ -172,7 +196,7 @@ export default function AdminLiveChatPage() {
           </div>
         </aside>
 
-        <article className="card admin-chat-thread">
+        <article className="card admin-chat-thread admin-chat-thread-redesigned">
           {!selected ? (
             <div className="chat-empty-state"><strong>Select a conversation</strong><p>Open a customer chat from the inbox to read and reply.</p></div>
           ) : (

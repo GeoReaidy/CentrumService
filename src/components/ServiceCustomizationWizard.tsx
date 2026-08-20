@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
 
@@ -40,14 +41,15 @@ const usageChoices = [
 const budgetChoices = ["Under $20", "$20–$30", "$30–$50", "$50+", "Not sure yet"];
 
 export function ServiceCustomizationWizard({
-  triggerLabel = "Help Me Customize My Service",
-  triggerClassName = "btn btn-secondary",
-  plans: providedPlans,
-  defaults,
-  openInitially = false,
-  onSubmitted,
-}: ServiceCustomizationWizardProps) {
+                                             triggerLabel = "Help Me Customize My Service",
+                                             triggerClassName = "btn btn-secondary",
+                                             plans: providedPlans,
+                                             defaults,
+                                             openInitially = false,
+                                             onSubmitted,
+                                           }: ServiceCustomizationWizardProps) {
   const supabase = getSupabaseBrowserClient();
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(openInitially);
   const [step, setStep] = useState(0);
   const [plans, setPlans] = useState<CustomizationPlan[]>(providedPlans ?? []);
@@ -71,16 +73,20 @@ export function ServiceCustomizationWizard({
   const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!open || providedPlans?.length || !supabase || plans.length) return;
     let active = true;
     void supabase
-      .from("plans")
-      .select("id,name,monthly_price_usd")
-      .eq("is_active", true)
-      .order("monthly_price_usd", { ascending: true })
-      .then(({ data }) => {
-        if (active) setPlans((data as CustomizationPlan[] | null) ?? []);
-      });
+        .from("plans")
+        .select("id,name,monthly_price_usd")
+        .eq("is_active", true)
+        .order("monthly_price_usd", { ascending: true })
+        .then(({ data }) => {
+          if (active) setPlans((data as CustomizationPlan[] | null) ?? []);
+        });
     return () => { active = false; };
   }, [open, plans.length, providedPlans, supabase]);
 
@@ -95,21 +101,27 @@ export function ServiceCustomizationWizard({
 
   useEffect(() => {
     if (!open) return;
-    const previousOverflow = document.body.style.overflow;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !submitting) setOpen(false);
     };
+
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [open, submitting]);
 
   const selectedPlan = useMemo(
-    () => plans.find((plan) => String(plan.id) === preferredPlanId) ?? null,
-    [plans, preferredPlanId],
+      () => plans.find((plan) => String(plan.id) === preferredPlanId) ?? null,
+      [plans, preferredPlanId],
   );
 
   function toggleUsage(choice: string) {
@@ -183,8 +195,8 @@ export function ServiceCustomizationWizard({
       if (!response.ok) throw new Error(result.error || "Could not submit your customization request.");
 
       setSuccess(result.email_sent === false
-        ? "Your request was saved for the Centrum team. Email delivery still needs to be configured by the administrator."
-        : "Your request was sent to the Centrum team. They can now recommend the best setup for you.");
+          ? "Your request was saved for the Centrum team. Email delivery still needs to be configured by the administrator."
+          : "Your request was sent to the Centrum team. They can now recommend the best setup for you.");
       setCaptchaToken("");
       setCaptchaResetKey((value) => value + 1);
       setStep(4);
@@ -198,32 +210,32 @@ export function ServiceCustomizationWizard({
     }
   }
 
-  return (
-    <>
-      <button type="button" className={triggerClassName} onClick={() => { setOpen(true); setError(""); }}>
-        {triggerLabel}
-      </button>
-
-      {open ? (
-        <div className="wizard-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeWizard(); }}>
-          <section className="wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="customize-title">
-            <div className="wizard-header">
-              <div>
-                <span className="badge card-badge">Service Match</span>
-                <h2 id="customize-title">Help Me Customize My Service</h2>
-                <p>Tell Centrum how you actually use the internet. This is optional and does not change your account automatically.</p>
-              </div>
-              <button type="button" className="wizard-close" onClick={closeWizard} aria-label="Close customization wizard">×</button>
+  const wizard = open ? (
+      <div
+          className="wizard-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeWizard();
+          }}
+      >
+        <section className="wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="customize-title">
+          <div className="wizard-header">
+            <div>
+              <span className="badge card-badge">Service Match</span>
+              <h2 id="customize-title">Help Me Customize My Service</h2>
+              <p>Tell Centrum how you actually use the internet. This is optional and does not change your account automatically.</p>
             </div>
+            <button type="button" className="wizard-close" onClick={closeWizard} aria-label="Close customization wizard">×</button>
+          </div>
 
-            {step < 4 ? (
+          {step < 4 ? (
               <div className="wizard-progress" aria-label={`Step ${step + 1} of 4`}>
                 {[0, 1, 2, 3].map((item) => <span className={item <= step ? "active" : ""} key={item} />)}
               </div>
-            ) : null}
+          ) : null}
 
-            <form onSubmit={submitRequest} className="wizard-body">
-              {step === 0 ? (
+          <form onSubmit={submitRequest} className="wizard-body">
+            {step === 0 ? (
                 <div className="wizard-step">
                   <div className="wizard-step-heading"><span>1</span><div><h3>Where should we reach you?</h3><p>Used only to prepare and follow up on this recommendation.</p></div></div>
                   <div className="form-two-col">
@@ -233,9 +245,9 @@ export function ServiceCustomizationWizard({
                     <label>Service address<input value={address} onChange={(event) => setAddress(event.target.value)} autoComplete="street-address" placeholder="Village / street / building" /></label>
                   </div>
                 </div>
-              ) : null}
+            ) : null}
 
-              {step === 1 ? (
+            {step === 1 ? (
                 <div className="wizard-step">
                   <div className="wizard-step-heading"><span>2</span><div><h3>How will you use the connection?</h3><p>This helps separate a light household from a gaming, work, or camera-heavy setup.</p></div></div>
                   <div className="form-two-col">
@@ -245,13 +257,13 @@ export function ServiceCustomizationWizard({
                   </div>
                   <div className="wizard-choice-grid">
                     {usageChoices.map((choice) => (
-                      <button type="button" key={choice} className={`wizard-choice ${usage.includes(choice) ? "selected" : ""}`} onClick={() => toggleUsage(choice)}>{usage.includes(choice) ? "✓ " : ""}{choice}</button>
+                        <button type="button" key={choice} className={`wizard-choice ${usage.includes(choice) ? "selected" : ""}`} onClick={() => toggleUsage(choice)}>{usage.includes(choice) ? "✓ " : ""}{choice}</button>
                     ))}
                   </div>
                 </div>
-              ) : null}
+            ) : null}
 
-              {step === 2 ? (
+            {step === 2 ? (
                 <div className="wizard-step">
                   <div className="wizard-step-heading"><span>3</span><div><h3>Budget and plan preference</h3><p>You can pick a plan you already like, or leave the final recommendation to Centrum.</p></div></div>
                   <div className="form-two-col">
@@ -260,9 +272,9 @@ export function ServiceCustomizationWizard({
                     <label>Current provider / setup<input value={currentProvider} onChange={(event) => setCurrentProvider(event.target.value)} placeholder="Optional" /></label>
                   </div>
                 </div>
-              ) : null}
+            ) : null}
 
-              {step === 3 ? (
+            {step === 3 ? (
                 <div className="wizard-step">
                   <div className="wizard-step-heading"><span>4</span><div><h3>Review your request</h3><p>Nothing is activated or billed from this form. Centrum will contact you before making service changes.</p></div></div>
                   <div className="wizard-review">
@@ -273,31 +285,38 @@ export function ServiceCustomizationWizard({
                   </div>
                   <label>Anything else we should know?<textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Coverage concerns, gaming latency, work requirements, cameras, installation timing..." /></label>
                 </div>
-              ) : null}
+            ) : null}
 
-              {step === 4 ? (
+            {step === 4 ? (
                 <div className="wizard-success">
                   <span className="wizard-success-icon">✓</span>
                   <h3>Request received</h3>
                   <p>{success}</p>
                   <button type="button" className="btn btn-primary" onClick={closeWizard}>Done</button>
                 </div>
-              ) : null}
+            ) : null}
 
-              {step === 3 ? <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} /> : null}
+            {step === 3 ? <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} /> : null}
 
-              {error ? <p className="form-alert form-alert-error">{error}</p> : null}
+            {error ? <p className="form-alert form-alert-error">{error}</p> : null}
 
-              {step < 4 ? (
+            {step < 4 ? (
                 <div className="wizard-actions">
                   {step > 0 ? <button type="button" className="btn btn-secondary" onClick={() => { setError(""); setStep((current) => Math.max(0, current - 1)); }}>Back</button> : <span />}
                   {step < 3 ? <button type="button" className="btn btn-primary" onClick={nextStep}>Continue</button> : <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? "Sending..." : "Send My Request"}</button>}
                 </div>
-              ) : null}
-            </form>
-          </section>
-        </div>
-      ) : null}
-    </>
+            ) : null}
+          </form>
+        </section>
+      </div>
+  ) : null;
+
+  return (
+      <>
+        <button type="button" className={triggerClassName} onClick={() => { setOpen(true); setError(""); }}>
+          {triggerLabel}
+        </button>
+        {mounted && wizard ? createPortal(wizard, document.body) : null}
+      </>
   );
 }
