@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Force Netlify's Next.js runtime to process the .next output.
+# This is intentionally explicit because this site's automatic adapter
+# detection is currently producing a raw .next deploy with no functions
+# or framework-generated routing.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
