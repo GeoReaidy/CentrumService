@@ -38,13 +38,42 @@ function readSecretKey() {
 
 function allowedOrigins() {
   const configured = Deno.env.get("CENTRUM_ALLOWED_ORIGINS");
-  if (!configured) return DEFAULT_ORIGINS;
-  return configured.split(",").map((value) => value.trim()).filter(Boolean);
+  const extra = configured
+    ? configured.split(",").map((value) => value.trim()).filter(Boolean)
+    : [];
+  return new Set([...DEFAULT_ORIGINS, ...extra]);
+}
+
+function isCentrumOrigin(origin: string) {
+  if (allowedOrigins().has(origin)) return true;
+
+  try {
+    const url = new URL(origin);
+
+    // Local development only. CORS is not authentication; production requests
+    // are still protected by rate limiting / validation in the function body.
+    if (url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")) {
+      return true;
+    }
+
+    // Allow Centrum's own Netlify production/branch/deploy URLs, e.g.
+    // centrum-beta-v3--centrumservice.netlify.app or <deploy>--centrumservice.netlify.app.
+    if (url.protocol === "https:" && (
+      url.hostname === "centrumservice.netlify.app" ||
+      url.hostname.endsWith("--centrumservice.netlify.app")
+    )) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
 }
 
 function originHeaders(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin || !allowedOrigins().includes(origin)) return null;
+  if (!origin || !isCentrumOrigin(origin)) return null;
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",

@@ -214,8 +214,8 @@ export default function AdminLiveChatPage() {
 
               <div className="chat-message-list admin-chat-messages">
                 {messages.length === 0 ? <div className="chat-empty-state"><p>No messages in this conversation yet.</p></div> : messages.map((item) => (
-                  <div className={`chat-message ${item.is_admin ? "chat-message-admin" : "chat-message-customer"}`} key={item.id}>
-                    <div className="chat-message-meta"><strong>{item.is_admin ? "You / Centrum" : customerName(selected.customer_id)}</strong><span>{new Date(item.created_at).toLocaleString()}</span></div>
+                  <div className={`chat-message ${item.is_admin ? "chat-message-own" : "chat-message-other"}`} key={item.id}>
+                    <div className="chat-message-meta"><strong>{item.is_admin ? "You" : customerName(selected.customer_id)}</strong><span>{new Date(item.created_at).toLocaleString()}</span></div>
                     <p>{item.message}</p>
                   </div>
                 ))}

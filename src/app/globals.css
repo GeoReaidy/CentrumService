@@ -5254,3 +5254,126 @@ textarea {
         align-items: flex-start;
     }
 }
+
+/* Live chat reliability + cross-side UI consistency ----------------------- */
+.live-chat-surface {
+    display: grid;
+    gap: 1rem;
+}
+
+.live-chat-surface .live-chat-header,
+.admin-page .admin-header {
+    margin-bottom: 0;
+}
+
+.live-chat-thread-card {
+    margin-top: 0;
+}
+
+.chat-status-row {
+    min-height: 70px;
+}
+
+.chat-status-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.14rem;
+}
+
+.chat-status-copy .field-note {
+    margin: 0;
+}
+
+/* "Own" is always on the right, regardless of whether the viewer is the
+   customer or an admin. This removes the role-based visual flip between the
+   two live-chat screens. */
+.chat-message-own {
+    align-self: flex-end;
+    background: linear-gradient(145deg, rgba(47, 108, 255, 0.22), rgba(25, 55, 126, 0.22));
+    border-color: rgba(78, 125, 255, 0.48);
+}
+
+.chat-message-other {
+    align-self: flex-start;
+    background: rgba(16, 29, 53, 0.9);
+}
+
+.live-chat-inline-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(255, 103, 142, 0.55);
+    border-radius: 12px;
+    background: rgba(71, 21, 37, 0.62);
+    color: #ffd4df;
+}
+
+.live-chat-inline-error > div {
+    min-width: 0;
+    display: grid;
+    gap: 0.16rem;
+}
+
+.live-chat-inline-error strong {
+    color: #fff0f4;
+}
+
+.live-chat-inline-error span {
+    color: #efb7c5;
+    overflow-wrap: anywhere;
+}
+
+/* The list is a grid inside a fixed-height inbox. Without explicit implicit
+   row sizing, CSS Grid stretches a small number of conversations to fill the
+   whole column, producing the giant rows seen in the admin screenshot. */
+.admin-chat-inbox-redesigned .admin-chat-session-list {
+    align-content: start;
+    grid-auto-rows: max-content;
+}
+
+.admin-chat-session {
+    min-height: 64px;
+    padding: 0.72rem 0.85rem;
+    line-height: 1.25;
+}
+
+.admin-chat-session > span:last-child {
+    min-width: 0;
+}
+
+.admin-chat-session strong,
+.admin-chat-session small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-chat-session small {
+    white-space: nowrap;
+}
+
+.admin-chat-thread-redesigned .chat-message,
+.live-chat-thread-card .chat-message {
+    width: min(78%, 680px);
+}
+
+@media (max-width: 720px) {
+    .live-chat-inline-error {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .live-chat-inline-error .btn {
+        width: 100%;
+    }
+
+    .admin-chat-session {
+        min-height: 60px;
+    }
+
+    .admin-chat-thread-redesigned .chat-message,
+    .live-chat-thread-card .chat-message {
+        width: min(92%, 680px);
+    }
+}
