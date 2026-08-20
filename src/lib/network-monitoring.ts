@@ -50,12 +50,12 @@ export function deriveGlobalNetworkSummary(
 
   let label: GlobalNetworkStatus;
   if (globalMaintenance) label = "Maintenance";
-  else if (!monitoredNodes.length || !heartbeatAt) label = "Monitoring Pending";
-  else if (!heartbeatFresh) label = "Monitoring Unavailable";
-  else if (downCount === monitoredNodes.length) label = "Network Outage";
+  else if (!monitoredNodes.length) label = "Monitoring Pending";
+  else if (downCount === monitoredNodes.length && unknownCount === 0) label = "Network Outage";
   else if (downCount > 0) label = "Partial Outage";
-  else if (unknownCount > 0) label = "Monitoring Pending";
-  else label = "Operational";
+  else if (upCount === monitoredNodes.length) label = "Operational";
+  else if (!freshNodes.length && heartbeatAt && !heartbeatFresh) label = "Monitoring Unavailable";
+  else label = "Monitoring Pending";
 
   return {
     label,
@@ -110,27 +110,19 @@ export function deriveCustomerNodeState(
     };
   }
 
-  if (!heartbeatAt) {
-    return {
-      key: "pending",
-      label: "Checking Status",
-      message: "Centrum is waiting for the network monitor to report your node status.",
-    };
-  }
-
-  if (!heartbeatIsFresh(heartbeatAt)) {
-    return {
-      key: "unavailable",
-      label: "Status Unavailable",
-      message: "Automatic monitoring is temporarily unavailable. Your last known node state may be stale.",
-    };
-  }
-
   if (!node.last_checked_at) {
+    if (heartbeatAt && !heartbeatIsFresh(heartbeatAt)) {
+      return {
+        key: "unavailable",
+        label: "Status Unavailable",
+        message: "The monitoring agents assigned to your service node are not reporting right now.",
+      };
+    }
+
     return {
       key: "pending",
       label: "Checking Status",
-      message: "Centrum is waiting for the first confirmed result from your service node.",
+      message: "Centrum is waiting for the first confirmed result from a monitoring agent that can reach your service node.",
     };
   }
 

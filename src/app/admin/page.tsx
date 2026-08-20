@@ -15,6 +15,7 @@ import {
   type ProbeStatus,
 } from "@/lib/network-monitoring";
 import { AsyncState } from "@/components/AsyncState";
+import { MonitorAgentsPanel } from "@/components/MonitorAgentsPanel";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
 type DbProfile = {
@@ -655,7 +656,7 @@ export default function AdminPage() {
     const name = newNodeName.trim();
     const monitorIp = newNodeIp.trim();
     if (!name || !monitorIp) {
-      setNodeError("Enter both a node name and the IP that Switch-Alfa should ping.");
+      setNodeError("Enter both a node name and the IP that monitoring agents should ping.");
       return;
     }
     setNodeError("");
@@ -673,7 +674,7 @@ export default function AdminPage() {
     }
     setNewNodeName("");
     setNewNodeIp("");
-    setNodeMessage(`Node “${name}” was saved. Switch-Alfa will pick it up on its next monitoring cycle.`);
+    setNodeMessage(`Node “${name}” was saved. Assign it to one or more Monitoring Agents that can reach it.`);
     await fetchNodes();
   }
 
@@ -718,17 +719,18 @@ export default function AdminPage() {
 
   async function deleteNode(node: DbNode) {
     if (!supabase) return;
-    const assigned = users.some((user) => user.node_id === node.id);
-    if (assigned) {
-      setNodeError("That node is assigned to a customer. Reassign the customer first.");
-      return;
-    }
-    if (!window.confirm(`Remove “${node.name}” from the node list?`)) return;
+    const assignedCount = users.filter((user) => user.node_id === node.id).length;
+    const warning = assignedCount
+      ? ` ${assignedCount} customer${assignedCount === 1 ? " is" : "s are"} currently assigned to this node and will become unassigned.`
+      : "";
+    if (!window.confirm(`Remove “${node.name}” from the node list?${warning}`)) return;
+    setNodeError("");
+    setNodeMessage("");
     const { error } = await supabase.from("nodes").delete().eq("id", node.id);
-    if (error) setNodeError(toFriendlyErrorMessage(error, "The service node could not be changed. Please try again."));
+    if (error) setNodeError(toFriendlyErrorMessage(error, "The service node could not be deleted. Please try again."));
     else {
-      setNodeMessage(`“${node.name}” was removed.`);
-      await fetchNodes();
+      setNodeMessage(`“${node.name}” was removed.${assignedCount ? ` ${assignedCount} customer${assignedCount === 1 ? " is" : "s are"} now unassigned.` : ""}`);
+      await Promise.all([fetchNodes(), fetchUsers()]);
     }
   }
 
@@ -1000,7 +1002,7 @@ export default function AdminPage() {
             <span><strong>{networkSummary.monitoredCount}</strong> monitored</span>
           </div>
           <p className={`monitor-heartbeat admin-network-heartbeat ${monitorHeartbeat && !heartbeatIsFresh(monitorHeartbeat) ? "monitor-heartbeat-stale" : ""}`}>
-            Monitor heartbeat: <strong>{formatRelativeTime(monitorHeartbeat)}</strong>
+            Latest agent heartbeat: <strong>{formatRelativeTime(monitorHeartbeat)}</strong>
           </p>
           {storedNetworkStatus !== networkSummary.label ? <p className="field-note admin-network-sync-note">Database status is syncing from the monitor ({storedNetworkStatus}).</p> : null}
         </div>
@@ -1018,12 +1020,14 @@ export default function AdminPage() {
         </div>
       </article>
 
+      <MonitorAgentsPanel nodes={nodes} />
+
       <article className="card admin-network-nodes-card">
         <div className="section-heading-row admin-network-nodes-heading">
           <div>
             <div className="badge card-badge">Infrastructure</div>
             <h2>Service Nodes</h2>
-            <p className="page-intro">Add monitoring targets, filter the node list, and manage each node with the full workspace width.</p>
+            <p className="page-intro">Add service nodes as simple monitoring targets. Which routers can watch each node is configured separately in Monitoring Agents above.</p>
           </div>
           <span className="status-pill status-active">{nodes.length} saved · {networkSummary.monitoredCount} monitored</span>
         </div>
@@ -1034,7 +1038,7 @@ export default function AdminPage() {
             <input value={newNodeIp} onChange={(event) => setNewNodeIp(event.target.value)} placeholder="Monitoring IP, e.g. 10.0.1.1" required />
             <button type="submit" className="btn btn-primary">Add Node</button>
           </form>
-          <p className="field-note">Nodes saved here become monitoring targets. Switch-Alfa reads the list from Supabase and reports their ping result back automatically.</p>
+          <p className="field-note">Nodes saved here are only monitoring targets. Assign them to every Monitoring Agent that can reach them; a node may be watched by multiple agents for redundancy.</p>
 
           <div className="list-toolbar list-toolbar-three node-filter-toolbar admin-network-node-filter">
             <input className="admin-search" value={nodeSearch} onChange={(event) => setNodeSearch(event.target.value)} placeholder="Search node name or IP..." />
