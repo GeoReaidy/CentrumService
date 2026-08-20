@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveIsAdmin } from "@/lib/supabase-role";
+import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
 
 export default function PortalAccountPage() {
@@ -38,12 +38,12 @@ export default function PortalAccountPage() {
         return;
       }
 
-      const admin = await resolveIsAdmin(client, data.user);
+      const role = await resolveUserRole(client, data.user);
       if (!mounted) return;
 
-      if (admin) {
+      if (role === "admin" || role === "manager") {
         setIsLoading(false);
-        router.replace("/admin");
+        router.replace(roleHome(role));
         return;
       }
 

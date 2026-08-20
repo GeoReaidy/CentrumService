@@ -1,11 +1,15 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
+export type CentrumRole = "customer" | "manager" | "admin" | "support";
+
 /**
- * These are application-level role field names only.
+ * Authorization helpers for UI/navigation only.
  *
  * IMPORTANT:
- * - user_metadata is intentionally NOT trusted for authorization.
- * - The real security boundary is database RLS, not this client-side helper.
+ * - user_metadata is never trusted for authorization.
+ * - profiles.role is the primary source of truth.
+ * - app_metadata is only a fallback when a profile row cannot be read.
+ * - Database RLS remains the actual security boundary.
  */
 const ROLE_KEYS = [
   "role",
@@ -17,74 +21,110 @@ const ROLE_KEYS = [
   "usertype",
 ];
 
+export function normalizeCentrumRole(value: unknown): CentrumRole | null {
+  if (typeof value !== "string") return null;
+  const role = value.trim().toLowerCase();
+  if (role === "customer" || role === "manager" || role === "admin" || role === "support") {
+    return role;
+  }
+  return null;
+}
+
 export function isAdminRole(role: unknown): boolean {
-  if (typeof role === "string") {
-    return role.trim().toLowerCase() === "admin";
-  }
-
-  if (Array.isArray(role)) {
-    return role.some(
-      (entry) =>
-        typeof entry === "string" &&
-        entry.trim().toLowerCase() === "admin",
-    );
-  }
-
+  if (typeof role === "string") return normalizeCentrumRole(role) === "admin";
+  if (Array.isArray(role)) return role.some((entry) => isAdminRole(entry));
   return false;
 }
 
-function hasAdminRoleInObject(
+export function isManagerRole(role: unknown): boolean {
+  if (typeof role === "string") return normalizeCentrumRole(role) === "manager";
+  if (Array.isArray(role)) return role.some((entry) => isManagerRole(entry));
+  return false;
+}
+
+export function isStaffRole(role: unknown): boolean {
+  if (typeof role === "string") {
+    const normalized = normalizeCentrumRole(role);
+    return normalized === "admin" || normalized === "manager";
+  }
+  if (Array.isArray(role)) return role.some((entry) => isStaffRole(entry));
+  return false;
+}
+
+function readRoleFromObject(
   source: Record<string, unknown> | null | undefined,
-): boolean {
-  if (!source) return false;
+): CentrumRole | null {
+  if (!source) return null;
 
   for (const [key, value] of Object.entries(source)) {
-    if (ROLE_KEYS.includes(key.toLowerCase()) && isAdminRole(value)) {
-      return true;
+    if (!ROLE_KEYS.includes(key.toLowerCase())) continue;
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        const normalized = normalizeCentrumRole(entry);
+        if (normalized) return normalized;
+      }
+      continue;
     }
+
+    const normalized = normalizeCentrumRole(value);
+    if (normalized) return normalized;
   }
 
-  return false;
+  return null;
 }
 
 async function fetchProfileRole(
   supabase: SupabaseClient,
   userId: string,
-): Promise<Record<string, unknown> | null> {
+): Promise<CentrumRole | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select("role")
     .eq("id", userId)
     .maybeSingle();
 
   if (error || !data) return null;
-  return data as Record<string, unknown>;
+  return normalizeCentrumRole((data as { role?: unknown }).role);
 }
 
-/**
- * UI/navigation helper only.
- *
- * Trusted inputs:
- * 1. The user's own `profiles` row, PROVIDED the deployed database RLS prevents
- *    customers from changing their authorization fields.
- * 2. `app_metadata`, which is server-controlled in Supabase Auth.
- *
- * Explicitly NOT trusted:
- * - user_metadata
- * - arbitrary client state
- * - URL/query parameters
- *
- * Every sensitive database operation still must be protected by RLS.
- */
+export async function resolveUserRole(
+  supabase: SupabaseClient | null,
+  user: User | null | undefined,
+): Promise<CentrumRole> {
+  if (!supabase || !user) return "customer";
+
+  const profileRole = await fetchProfileRole(supabase, user.id);
+  if (profileRole) return profileRole;
+
+  const appMetadata = (user.app_metadata ?? {}) as Record<string, unknown>;
+  return readRoleFromObject(appMetadata) ?? "customer";
+}
+
 export async function resolveIsAdmin(
   supabase: SupabaseClient | null,
   user: User | null | undefined,
 ): Promise<boolean> {
-  if (!supabase || !user) return false;
+  return (await resolveUserRole(supabase, user)) === "admin";
+}
 
-  const profileRow = await fetchProfileRole(supabase, user.id);
-  if (hasAdminRoleInObject(profileRow)) return true;
+export async function resolveIsManager(
+  supabase: SupabaseClient | null,
+  user: User | null | undefined,
+): Promise<boolean> {
+  return (await resolveUserRole(supabase, user)) === "manager";
+}
 
-  const appMetadata = (user.app_metadata ?? {}) as Record<string, unknown>;
-  return hasAdminRoleInObject(appMetadata);
+export async function resolveIsStaff(
+  supabase: SupabaseClient | null,
+  user: User | null | undefined,
+): Promise<boolean> {
+  const role = await resolveUserRole(supabase, user);
+  return role === "admin" || role === "manager";
+}
+
+export function roleHome(role: CentrumRole): string {
+  if (role === "admin") return "/admin";
+  if (role === "manager") return "/manager";
+  return "/portal/dashboard";
 }

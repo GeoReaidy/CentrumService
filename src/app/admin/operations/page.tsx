@@ -29,6 +29,8 @@ export default function AdminOperationsPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [monthlyPaymentCount, setMonthlyPaymentCount] = useState(0);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [customizationRequests, setCustomizationRequests] = useState<CustomizationRequest[]>([]);
@@ -70,20 +72,27 @@ export default function AdminOperationsPage() {
 
   const fetchAll = useCallback(async () => {
     if (!supabase) return;
-    const [customersResult, plansResult, paymentsResult, announcementsResult, requestsResult, customizationResult] = await Promise.all([
-      supabase.from("profiles").select("id,full_name,plan_id").order("full_name", { ascending: true }).limit(1000),
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    const [customersResult, plansResult, paymentsResult, monthlyPaymentsResult, announcementsResult, requestsResult, customizationResult] = await Promise.all([
+      supabase.from("profiles").select("id,full_name,plan_id").eq("role", "customer").order("full_name", { ascending: true }).limit(1000),
       supabase.from("plans").select("id,name,monthly_price_usd").order("monthly_price_usd", { ascending: true }),
       supabase.from("payments").select("id,customer_id,amount_usd,paid_at,payment_method,reference,notes").order("paid_at", { ascending: false }).limit(500),
+      supabase.from("payments").select("amount_usd,paid_at").gte("paid_at", monthStart).lt("paid_at", nextMonthStart).order("paid_at", { ascending: true }).limit(5000),
       supabase.from("announcements").select("id,title,body,is_published,starts_at,ends_at,created_at").order("created_at", { ascending: false }).limit(30),
       supabase.from("service_requests").select("id,customer_id,request_type,details,status,admin_note,created_at").order("created_at", { ascending: false }).limit(200),
       supabase.from("service_customization_requests").select("id,customer_id,full_name,email,phone,address,service_type,people_count,device_count,usage_types,budget_range,preferred_plan_name,current_provider,notes,status,email_sent_at,email_error,created_at").order("created_at", { ascending: false }).limit(300),
     ]);
-    const firstError = customersResult.error || plansResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error;
+    const firstError = customersResult.error || plansResult.error || paymentsResult.error || monthlyPaymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error;
     if (firstError) { console.error("Admin operations data load failed", firstError); setError(toFriendlyErrorMessage(firstError, "Customer operations data could not be loaded right now.")); }
     else setError("");
     setCustomers((customersResult.data as Customer[] | null) ?? []);
     setPlans((plansResult.data as Plan[] | null) ?? []);
     setPayments((paymentsResult.data as Payment[] | null) ?? []);
+    const monthRows = (monthlyPaymentsResult.data as Array<{ amount_usd: number; paid_at: string }> | null) ?? [];
+    setMonthlyRevenue(monthRows.reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0));
+    setMonthlyPaymentCount(monthRows.length);
     setAnnouncements((announcementsResult.data as Announcement[] | null) ?? []);
     const nextRequests = (requestsResult.data as ServiceRequest[] | null) ?? [];
     setRequests(nextRequests);
@@ -148,18 +157,20 @@ export default function AdminOperationsPage() {
   const planMap = useMemo(() => new Map(plans.map((plan) => [plan.id, plan])), [plans]);
 
   const operationsSummary = useMemo(() => {
-    const totalPayments = payments.reduce((sum, payment) => sum + Number(payment.amount_usd || 0), 0);
+    const now = new Date();
     const publishedAnnouncements = announcements.filter((announcement) => announcement.is_published).length;
     const openRequests = requests.filter((request) => !["completed", "declined", "cancelled"].includes(request.status)).length;
     const pendingCustomizations = customizationRequests.filter((request) => request.status === "new" || request.status === "contacted").length;
 
     return {
-      totalPayments,
+      monthlyRevenue,
+      monthlyPaymentCount,
+      monthLabel: new Intl.DateTimeFormat("en", { month: "long" }).format(now),
       publishedAnnouncements,
       openRequests,
       pendingCustomizations,
     };
-  }, [announcements, customizationRequests, payments, requests]);
+  }, [announcements, customizationRequests, monthlyPaymentCount, monthlyRevenue, requests]);
 
   const paymentCustomerOptions = useMemo(() => {
     const query = paymentCustomerSearch.trim().toLowerCase();
@@ -419,6 +430,10 @@ export default function AdminOperationsPage() {
               <span><strong>Live Chat Inbox</strong><small>Open conversations</small></span>
               <span>→</span>
             </Link>
+            <Link href="/admin/revenue" className="admin-tool-link">
+              <span><strong>Revenue & Collections</strong><small>Finance analytics</small></span>
+              <span>→</span>
+            </Link>
             <Link href="/admin" className="admin-tool-link">
               <span><strong>Admin Console</strong><small>Customers & network</small></span>
               <span>→</span>
@@ -442,12 +457,12 @@ export default function AdminOperationsPage() {
               </div>
 
               <div className="operations-summary-grid">
-                <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("payments")}>
-                  <span className="admin-overview-label">Payments Loaded</span>
-                  <strong>{payments.length}</strong>
-                  <small>${operationsSummary.totalPayments.toFixed(2)} across loaded payment records.</small>
-                  <span className="admin-overview-action">Open payments →</span>
-                </button>
+                <Link href="/admin/revenue" className="admin-overview-card">
+                  <span className="admin-overview-label">Monthly Revenue</span>
+                  <strong>${operationsSummary.monthlyRevenue.toFixed(2)}</strong>
+                  <small>{operationsSummary.monthlyPaymentCount} payment{operationsSummary.monthlyPaymentCount === 1 ? "" : "s"} collected in {operationsSummary.monthLabel}.</small>
+                  <span className="admin-overview-action">Open revenue dashboard →</span>
+                </Link>
 
                 <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("announcements")}>
                   <span className="admin-overview-label">Published Notices</span>
@@ -494,7 +509,10 @@ export default function AdminOperationsPage() {
                   <h2>Payments</h2>
                   <p className="page-intro">Record payments and search history without the other operations panels below it.</p>
                 </div>
-                <span className="status-pill status-active">{payments.length} loaded</span>
+                <div className="revenue-workspace-actions">
+                  <Link href="/admin/revenue" className="btn btn-secondary btn-compact">Revenue Dashboard</Link>
+                  <span className="status-pill status-active">{payments.length} loaded</span>
+                </div>
               </div>
       <article className="card admin-section">
         <div className="badge card-badge">Billing</div>

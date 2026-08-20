@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveIsAdmin } from "@/lib/supabase-role";
+import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 import { deriveCustomerNodeState, type ProbeStatus } from "@/lib/network-monitoring";
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
 import { AsyncState } from "@/components/AsyncState";
@@ -269,13 +269,13 @@ export default function PortalDashboardPage() {
         return;
       }
 
-      const admin = await resolveIsAdmin(client, data.user);
+      const role = await resolveUserRole(client, data.user);
       if (!mounted) return;
 
-      if (admin) {
-        setIsAdmin(true);
+      if (role === "admin" || role === "manager") {
+        setIsAdmin(role === "admin");
         setIsLoading(false);
-        router.replace("/admin");
+        router.replace(roleHome(role));
         return;
       }
 
@@ -298,12 +298,12 @@ export default function PortalDashboardPage() {
         return;
       }
 
-      const admin = await resolveIsAdmin(client, session.user);
+      const role = await resolveUserRole(client, session.user);
       if (!mounted) return;
 
-      if (admin) {
-        setIsAdmin(true);
-        router.replace("/admin");
+      if (role === "admin" || role === "manager") {
+        setIsAdmin(role === "admin");
+        router.replace(roleHome(role));
         return;
       }
 

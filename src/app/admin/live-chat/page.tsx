@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveIsAdmin } from "@/lib/supabase-role";
+import { resolveUserRole, type CentrumRole } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
@@ -17,6 +17,7 @@ export default function AdminLiveChatPage() {
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
   const [account, setAccount] = useState<User | null>(null);
+  const [staffRole, setStaffRole] = useState<CentrumRole>("customer");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -58,9 +59,10 @@ export default function AdminLiveChatPage() {
       const { data, error: authError } = await supabase!.auth.getUser();
       if (!mounted) return;
       if (authError || !data.user) { router.replace("/portal/login"); return; }
-      const admin = await resolveIsAdmin(supabase!, data.user);
+      const role = await resolveUserRole(supabase!, data.user);
       if (!mounted) return;
-      if (!admin) { router.replace("/portal/dashboard"); return; }
+      if (role !== "admin" && role !== "manager") { router.replace("/portal/dashboard"); return; }
+      setStaffRole(role);
       setAccount(data.user);
       await fetchSessions();
       if (mounted) setLoading(false);
@@ -142,8 +144,8 @@ export default function AdminLiveChatPage() {
           <p className="page-intro">Handle customer conversations in real time from one place.</p>
         </div>
         <div className="section-actions" style={{ marginTop: 0 }}>
-          <Link href="/admin" className="btn btn-secondary">Admin Dashboard</Link>
-          <Link href="/admin/operations" className="btn btn-secondary">Customer Operations</Link>
+          <Link href={staffRole === "manager" ? "/manager" : "/admin"} className="btn btn-secondary">{staffRole === "manager" ? "Manager Dashboard" : "Admin Dashboard"}</Link>
+          <Link href={staffRole === "manager" ? "/manager" : "/admin/operations"} className="btn btn-secondary">Customer Operations</Link>
         </div>
       </div>
 

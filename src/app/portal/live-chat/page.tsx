@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
@@ -113,6 +114,14 @@ export default function CustomerLiveChatPage() {
       if (!mounted) return;
       if (authError || !data.user) {
         router.replace("/portal/login");
+        return;
+      }
+
+      const role = await resolveUserRole(supabase!, data.user);
+      if (!mounted) return;
+      if (role === "admin" || role === "manager") {
+        setLoading(false);
+        router.replace(roleHome(role));
         return;
       }
 

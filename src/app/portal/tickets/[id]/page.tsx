@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveIsAdmin } from "@/lib/supabase-role";
+import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import type { RealtimePostgresChangesPayload, User } from "@supabase/supabase-js";
@@ -42,6 +42,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [staffHome, setStaffHome] = useState("/portal/dashboard");
   const [authReady, setAuthReady] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -103,10 +104,12 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
       }
 
       setUser(data.user);
-      const admin = await resolveIsAdmin(supabase!, data.user);
+      const role = await resolveUserRole(supabase!, data.user);
       if (cancelled) return;
 
-      setIsAdmin(admin);
+      const staff = role === "admin" || role === "manager";
+      setIsAdmin(staff);
+      setStaffHome(staff ? roleHome(role) : "/portal/dashboard");
       setAuthReady(true);
       await fetchTicketDetails();
     }
@@ -326,7 +329,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
                 Mark as Resolved
               </button>
             )}
-            <Link href={isAdmin ? "/admin" : "/portal/dashboard"} className="btn btn-secondary">
+            <Link href={isAdmin ? staffHome : "/portal/dashboard"} className="btn btn-secondary">
               Back to Dashboard
             </Link>
           </div>

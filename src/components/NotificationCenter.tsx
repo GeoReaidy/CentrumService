@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RealtimePostgresChangesPayload, User } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { resolveIsAdmin } from '@/lib/supabase-role';
+import { resolveUserRole, type CentrumRole } from '@/lib/supabase-role';
 
 export type NotificationCategory = 'tickets' | 'announcements' | 'service_requests' | 'customization';
 
@@ -84,7 +84,7 @@ export function NotificationCenter() {
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
   const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<CentrumRole>("customer");
   const [preferences, setPreferences] = useState<NotificationPreferences>(() => defaultNotificationPreferences());
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -142,7 +142,7 @@ export function NotificationCenter() {
       }
 
       setUser(data.user);
-      setIsAdmin(await resolveIsAdmin(supabase!, data.user));
+      setRole(await resolveUserRole(supabase!, data.user));
       await Promise.all([fetchPreferences(data.user.id), fetchNotifications(data.user.id)]);
     }
 
@@ -154,11 +154,11 @@ export function NotificationCenter() {
       setUser(nextUser);
       setDrawerOpen(false);
       if (!nextUser) {
-        setIsAdmin(false);
+        setRole("customer");
         setNotifications([]);
         return;
       }
-      setIsAdmin(await resolveIsAdmin(supabase, nextUser));
+      setRole(await resolveUserRole(supabase, nextUser));
       await Promise.all([fetchPreferences(nextUser.id), fetchNotifications(nextUser.id)]);
     });
 
@@ -288,7 +288,7 @@ export function NotificationCenter() {
 
           <div className="notification-drawer-actions">
             <button type="button" className="btn btn-secondary btn-compact" onClick={() => void markAllRead()} disabled={!unreadNotifications.length}>Mark all read</button>
-            <button type="button" className="btn btn-secondary btn-compact" onClick={() => { setDrawerOpen(false); router.push(isAdmin ? '/admin/account#notifications' : '/portal/account#notifications'); }}>Settings</button>
+            <button type="button" className="btn btn-secondary btn-compact" onClick={() => { setDrawerOpen(false); router.push(role === 'admin' ? '/admin/account#notifications' : role === 'manager' ? '/manager#notifications' : '/portal/account#notifications'); }}>Settings</button>
           </div>
 
           {loadError ? <p className="form-alert form-alert-error">{loadError}</p> : null}

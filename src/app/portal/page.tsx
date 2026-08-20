@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveIsAdmin } from "@/lib/supabase-role";
+import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 
 export default function PortalPage() {
   const router = useRouter();
@@ -27,10 +27,9 @@ export default function PortalPage() {
         return;
       }
 
-      const admin = await resolveIsAdmin(client, data.user);
+      const role = await resolveUserRole(client, data.user);
       if (cancelled) return;
-
-      router.replace(admin ? "/admin" : "/portal/dashboard");
+      router.replace(roleHome(role));
     }
 
     void openPortal();
@@ -41,10 +40,10 @@ export default function PortalPage() {
   }, [router, supabase]);
 
   return (
-      <section className="animate-fade-in">
-        <div className="badge badge-pulse page-badge">Centrum Portal</div>
-        <h1>Opening your portal...</h1>
-        <p className="page-intro">Checking your account and loading the correct dashboard.</p>
-      </section>
+    <section className="animate-fade-in">
+      <div className="badge badge-pulse page-badge">Centrum Portal</div>
+      <h1>Opening your portal...</h1>
+      <p className="page-intro">Checking your role and loading the correct Centrum workspace.</p>
+    </section>
   );
 }

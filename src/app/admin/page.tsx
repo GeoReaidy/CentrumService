@@ -85,6 +85,7 @@ type ContactInquiry = {
 };
 
 type ProfileDraft = {
+  full_name: string;
   phone: string;
   address: string;
   node_id: string;
@@ -140,6 +141,7 @@ export default function AdminPage() {
   const [userPage, setUserPage] = useState(1);
   const [userDrafts, setUserDrafts] = useState<Record<string, ProfileDraft>>({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [userMessage, setUserMessage] = useState("");
   const [userError, setUserError] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -226,6 +228,7 @@ export default function AdminPage() {
     const { data, error } = await supabase
       .from("profiles")
       .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date,renewal_auto_advance,renewal_interval_value,renewal_interval_unit")
+      .eq("role", "customer")
       .order("full_name", { ascending: true })
       .limit(1000);
     if (error) {
@@ -503,6 +506,7 @@ export default function AdminPage() {
 
   function draftFor(user: DbProfile): ProfileDraft {
     return userDrafts[user.id] ?? {
+      full_name: user.full_name ?? "",
       phone: user.phone ?? "",
       address: user.address ?? "",
       node_id: user.node_id ?? "",
@@ -534,6 +538,7 @@ export default function AdminPage() {
         ? Math.min(parsedRenewalInterval, 52)
         : 1;
     const payload = {
+      full_name: draft.full_name.trim() || user.full_name || "Customer",
       phone: draft.phone.trim() || null,
       address: draft.address.trim() || null,
       node_id: draft.node_id || null,
@@ -555,6 +560,7 @@ export default function AdminPage() {
 
     setUsers((current) => current.map((item) => item.id === user.id ? {
       ...item,
+      full_name: payload.full_name,
       phone: payload.phone,
       address: payload.address,
       node_id: payload.node_id,
@@ -567,8 +573,59 @@ export default function AdminPage() {
       renewal_interval_unit: payload.renewal_interval_unit,
     } : item));
     setSelectedUserId(null);
-    setUserMessage(`${user.full_name ?? "Customer"} was updated.`);
+    setUserMessage(`${payload.full_name} was updated.`);
     setSavingUserId(null);
+  }
+
+  async function deleteCustomerAccount(user: DbProfile) {
+    if (!supabase || deletingUserId) return;
+
+    const label = user.full_name || `customer ${user.id.slice(0, 8)}`;
+    if (!window.confirm(`Permanently delete ${label}'s Centrum account? This removes their sign-in and customer-owned portal records. Retained accounting history may remain without the account link. This cannot be undone.`)) return;
+
+    const typed = window.prompt('Type DELETE CUSTOMER to confirm permanent account deletion.');
+    if (typed !== 'DELETE CUSTOMER') {
+      if (typed !== null) setUserError('Customer deletion cancelled because the confirmation phrase did not match.');
+      return;
+    }
+
+    setDeletingUserId(user.id);
+    setUserError('');
+    setUserMessage('');
+
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      body: {
+        action: 'admin_delete_customer',
+        target_user_id: user.id,
+        confirmation: 'DELETE CUSTOMER',
+      },
+    });
+
+    if (error || !data?.ok) {
+      let failureMessage = typeof data?.error === 'string' ? data.error : 'The customer account could not be deleted.';
+      const context = (error as { context?: Response } | null)?.context;
+      if (context) {
+        try {
+          const payload = await context.clone().json() as { error?: unknown };
+          if (typeof payload.error === 'string' && payload.error.trim()) failureMessage = payload.error;
+        } catch {
+          // Keep the safe fallback message when the function response is not JSON.
+        }
+      }
+      setUserError(failureMessage);
+      setDeletingUserId(null);
+      return;
+    }
+
+    setUsers((current) => current.filter((item) => item.id !== user.id));
+    setSelectedUserId(null);
+    setUserDrafts((current) => {
+      const next = { ...current };
+      delete next[user.id];
+      return next;
+    });
+    setUserMessage(`${label} was permanently deleted.`);
+    setDeletingUserId(null);
   }
 
   async function updateContactStatus(id: number, status: ContactInquiry["status"]) {
@@ -846,8 +903,6 @@ export default function AdminPage() {
           <p className="page-intro">Choose a workspace instead of scrolling through the entire operations center at once.</p>
         </div>
         <div className="admin-header-utilities">
-          <Link href="/admin/account" className="btn btn-primary">Account Settings</Link>
-          <Link href="/" className="btn btn-secondary">Homepage</Link>
           <button type="button" className="btn btn-danger" onClick={() => void signOutAdmin()} disabled={isSigningOut}>
             {isSigningOut ? "Signing Out..." : "Sign Out"}
           </button>
@@ -889,6 +944,14 @@ export default function AdminPage() {
             </Link>
             <Link href="/admin/operations" className="admin-tool-link">
               <span><strong>Customer Operations</strong><small>Payments & service requests</small></span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <Link href="/admin/revenue" className="admin-tool-link">
+              <span><strong>Revenue & Collections</strong><small>Paid, unpaid & analytics</small></span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <Link href="/admin/roles" className="admin-tool-link">
+              <span><strong>Staff & Roles</strong><small>Managers & administrators</small></span>
               <span aria-hidden="true">→</span>
             </Link>
             <Link href="/admin/account" className="admin-tool-link">
@@ -965,11 +1028,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="admin-overview-shortcuts">
-                <Link href="/admin/live-chat" className="btn btn-primary">Open Live Chat Inbox</Link>
-                <Link href="/admin/operations" className="btn btn-secondary">Open Customer Operations</Link>
-                <Link href="/admin/account" className="btn btn-secondary">Account Settings</Link>
-              </div>
             </div>
           ) : null}
 
@@ -980,7 +1038,6 @@ export default function AdminPage() {
           <h2>Network</h2>
           <p className="page-intro">Monitor the network, manage service nodes, and control public coverage without squeezing everything into one row.</p>
         </div>
-        <span className={`status-pill status-${statusSlug(networkSummary.label)}`}>{networkSummary.label}</span>
       </div>
 
       <article className="card admin-network-status-strip">
@@ -1292,6 +1349,7 @@ export default function AdminPage() {
 
                 {isEditing ? (
                   <div className="customer-editor">
+                    <label>Full name<input value={draft.full_name} onChange={(event) => updateDraft(user, { full_name: event.target.value })} placeholder="Customer name" /></label>
                     <label>Phone<input value={draft.phone} onChange={(event) => updateDraft(user, { phone: event.target.value })} placeholder="+961 ..." /></label>
                     <label>Address<input value={draft.address} onChange={(event) => updateDraft(user, { address: event.target.value })} placeholder="Street, village, building..." /></label>
                     <label>Service node
@@ -1352,10 +1410,13 @@ export default function AdminPage() {
                       </>
                     ) : null}
                     <div className="customer-editor-actions">
-                      <button type="button" className="btn btn-primary" onClick={() => saveUser(user)} disabled={savingUserId === user.id}>
+                      <button type="button" className="btn btn-primary" onClick={() => saveUser(user)} disabled={savingUserId === user.id || deletingUserId === user.id}>
                         {savingUserId === user.id ? "Saving..." : "Save Customer"}
                       </button>
-                      <button type="button" className="btn btn-secondary" onClick={() => setSelectedUserId(null)}>Cancel</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setSelectedUserId(null)} disabled={deletingUserId === user.id}>Cancel</button>
+                      <button type="button" className="btn btn-danger admin-danger-action" onClick={() => void deleteCustomerAccount(user)} disabled={deletingUserId === user.id || savingUserId === user.id}>
+                        {deletingUserId === user.id ? "Deleting..." : "Delete Customer Account"}
+                      </button>
                     </div>
                   </div>
                 ) : null}
