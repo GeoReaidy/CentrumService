@@ -1,12 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 type ProbeStatus = "up" | "down" | "unknown";
-
-type ProbeReport = {
-  node_id?: unknown;
-  status?: unknown;
-  latency_ms?: unknown;
-};
+type ProbeReport = { node_id?: unknown; status?: unknown; latency_ms?: unknown };
+const MAX_BODY_BYTES = 8_000;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -14,6 +10,7 @@ function json(body: unknown, status = 200) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
     },
   });
 }
@@ -21,22 +18,19 @@ function json(body: unknown, status = 200) {
 function readSecretKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (legacy) return legacy;
-
+  const single = Deno.env.get("SUPABASE_SECRET_KEY");
+  if (single) return single;
   const raw = Deno.env.get("SUPABASE_SECRET_KEYS");
   if (!raw) return null;
-
   try {
     const keys = JSON.parse(raw) as Record<string, string>;
     return keys.default ?? Object.values(keys)[0] ?? null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 function normalizeStatus(value: unknown): ProbeStatus | null {
   return value === "up" || value === "down" || value === "unknown" ? value : null;
 }
-
 function normalizeLatency(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
   const latency = Number(value);
@@ -47,14 +41,8 @@ function normalizeLatency(value: unknown) {
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceKey = readSecretKey();
 const monitorKey = Deno.env.get("CENTRUM_MONITOR_KEY");
-
-if (!supabaseUrl || !serviceKey) {
-  throw new Error("Supabase server credentials are not available to network-monitor.");
-}
-
-const admin = createClient(supabaseUrl, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+if (!supabaseUrl || !serviceKey) throw new Error("Server credentials unavailable.");
+const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
 async function writeSetting(key: string, value: string) {
   const { error } = await admin.from("system_settings").upsert({ key, value }, { onConflict: "key" });
@@ -66,7 +54,6 @@ async function refreshAutomaticNetworkStatus() {
     admin.from("nodes").select("probe_status,last_checked_at").eq("monitor_enabled", true),
     admin.from("system_settings").select("value").eq("key", "global_maintenance").maybeSingle(),
   ]);
-
   if (nodesError) throw nodesError;
   if (maintenanceError) throw maintenanceError;
 
@@ -84,7 +71,7 @@ async function refreshAutomaticNetworkStatus() {
 
   let label: string;
   if (globalMaintenance) label = "Maintenance";
-  else if (!monitored.length || unknown > 0 && down === 0) label = "Monitoring Pending";
+  else if (!monitored.length || (unknown > 0 && down === 0)) label = "Monitoring Pending";
   else if (down === monitored.length) label = "Network Outage";
   else if (down > 0) label = "Partial Outage";
   else label = "Operational";
@@ -94,52 +81,35 @@ async function refreshAutomaticNetworkStatus() {
 }
 
 Deno.serve(async (request) => {
-  if (!monitorKey) {
-    return json({ error: "CENTRUM_MONITOR_KEY is not configured." }, 503);
-  }
-
+  const rid = crypto.randomUUID();
+  if (!monitorKey) return json({ error: "Monitoring service is unavailable.", request_id: rid }, 503);
   const suppliedKey = request.headers.get("x-centrum-monitor-key");
-  if (!suppliedKey || suppliedKey !== monitorKey) {
-    return json({ error: "Unauthorized monitor request." }, 401);
-  }
+  if (!suppliedKey || suppliedKey !== monitorKey) return json({ error: "Unauthorized.", request_id: rid }, 401);
 
   try {
     const now = new Date().toISOString();
-
     if (request.method === "GET") {
-      // A successful target-list fetch doubles as the monitoring-agent heartbeat.
       await writeSetting("monitor_heartbeat_at", now);
       await refreshAutomaticNetworkStatus();
-
-      const { data, error } = await admin
-        .from("nodes")
-        .select("id,name,monitor_ip")
-        .eq("monitor_enabled", true)
-        .not("monitor_ip", "is", null)
-        .order("name", { ascending: true });
-
+      const { data, error } = await admin.from("nodes").select("id,name,monitor_ip")
+        .eq("monitor_enabled", true).not("monitor_ip", "is", null).order("name", { ascending: true });
       if (error) throw error;
-
-      return json({
-        ok: true,
-        generated_at: now,
-        targets: (data ?? []).map((node) => ({
-          id: node.id,
-          name: node.name,
-          ip: node.monitor_ip,
-        })),
-      });
+      return json({ ok: true, generated_at: now, targets: (data ?? []).map((node) => ({ id: node.id, name: node.name, ip: node.monitor_ip })) });
     }
 
     if (request.method === "POST") {
-      const body = await request.json() as ProbeReport;
+      const contentLength = Number(request.headers.get("content-length") ?? "0");
+      if (contentLength > MAX_BODY_BYTES) return json({ error: "Request is too large.", request_id: rid }, 413);
+      const raw = await request.text();
+      if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) return json({ error: "Request is too large.", request_id: rid }, 413);
+      let body: ProbeReport;
+      try { body = JSON.parse(raw || "{}") as ProbeReport; }
+      catch { return json({ error: "Invalid request.", request_id: rid }, 400); }
+
       const nodeId = typeof body.node_id === "string" ? body.node_id.trim() : "";
       const status = normalizeStatus(body.status);
       const latencyMs = normalizeLatency(body.latency_ms);
-
-      if (!nodeId || !status) {
-        return json({ error: "Expected node_id and status (up, down, or unknown)." }, 400);
-      }
+      if (!nodeId || !status) return json({ error: "Invalid probe report.", request_id: rid }, 400);
 
       const patch: Record<string, unknown> = {
         probe_status: status,
@@ -147,27 +117,18 @@ Deno.serve(async (request) => {
         last_checked_at: now,
       };
       if (status === "up") patch.last_seen_at = now;
-
-      const { data, error } = await admin
-        .from("nodes")
-        .update(patch)
-        .eq("id", nodeId)
-        .eq("monitor_enabled", true)
-        .select("id,name")
-        .maybeSingle();
-
+      const { data, error } = await admin.from("nodes").update(patch)
+        .eq("id", nodeId).eq("monitor_enabled", true).select("id,name").maybeSingle();
       if (error) throw error;
-      if (!data) return json({ error: "Unknown or disabled node." }, 404);
-
+      if (!data) return json({ error: "Unknown or disabled node.", request_id: rid }, 404);
       await writeSetting("monitor_heartbeat_at", now);
       const network = await refreshAutomaticNetworkStatus();
-
       return json({ ok: true, node: data, network });
     }
 
-    return json({ error: "Method not allowed." }, 405);
+    return json({ error: "Method not allowed.", request_id: rid }, 405);
   } catch (error) {
-    console.error("network-monitor failure", error);
-    return json({ error: error instanceof Error ? error.message : "Unexpected monitor failure." }, 500);
+    console.error("network-monitor failure", { request_id: rid, error });
+    return json({ error: "Monitoring request failed.", request_id: rid }, 500);
   }
 });

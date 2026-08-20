@@ -24,9 +24,9 @@ export function isAdminRole(role: unknown): boolean {
 
   if (Array.isArray(role)) {
     return role.some(
-        (entry) =>
-            typeof entry === "string" &&
-            entry.trim().toLowerCase() === "admin",
+      (entry) =>
+        typeof entry === "string" &&
+        entry.trim().toLowerCase() === "admin",
     );
   }
 
@@ -34,7 +34,7 @@ export function isAdminRole(role: unknown): boolean {
 }
 
 function hasAdminRoleInObject(
-    source: Record<string, unknown> | null | undefined,
+  source: Record<string, unknown> | null | undefined,
 ): boolean {
   if (!source) return false;
 
@@ -48,14 +48,14 @@ function hasAdminRoleInObject(
 }
 
 async function fetchProfileRole(
-    supabase: SupabaseClient,
-    userId: string,
+  supabase: SupabaseClient,
+  userId: string,
 ): Promise<Record<string, unknown> | null> {
   const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
 
   if (error || !data) return null;
   return data as Record<string, unknown>;
@@ -77,8 +77,8 @@ async function fetchProfileRole(
  * Every sensitive database operation still must be protected by RLS.
  */
 export async function resolveIsAdmin(
-    supabase: SupabaseClient | null,
-    user: User | null | undefined,
+  supabase: SupabaseClient | null,
+  user: User | null | undefined,
 ): Promise<boolean> {
   if (!supabase || !user) return false;
 

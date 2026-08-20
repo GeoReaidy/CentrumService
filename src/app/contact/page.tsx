@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 
 export default function ContactPage() {
   const router = useRouter();
@@ -18,6 +19,9 @@ export default function ContactPage() {
   const [sending, setSending] = useState(false);
   const [formError, setFormError] = useState("");
   const [formMessage, setFormMessage] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   useEffect(() => {
     if (!supabase) return;
@@ -44,11 +48,15 @@ export default function ContactPage() {
   async function submitInquiry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) {
-      setFormError("Contact form is unavailable because Supabase is not configured.");
+      setFormError("Contact form is temporarily unavailable.");
       return;
     }
     if (!name.trim() || !email.trim() || !subject.trim() || !message.trim()) {
       setFormError("Please fill in your name, email, subject, and message.");
+      return;
+    }
+    if (turnstileEnabled && !captchaToken) {
+      setFormError("Please complete the security check.");
       return;
     }
 
@@ -56,23 +64,43 @@ export default function ContactPage() {
     setFormError("");
     setFormMessage("");
 
-    const { error } = await supabase.from("contact_inquiries").insert({
-      customer_id: account?.id ?? null,
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim() || null,
-      subject: subject.trim(),
-      message: message.trim(),
-    });
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      if (!baseUrl) throw new Error("Contact service unavailable.");
 
-    if (error) {
-      setFormError(error.message);
-    } else {
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) headers.authorization = `Bearer ${data.session.access_token}`;
+
+      const response = await fetch(`${baseUrl}/functions/v1/contact-submit`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim() || null,
+          subject: subject.trim(),
+          message: message.trim(),
+          website: "",
+          captcha_token: captchaToken || null,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Could not send your message right now.");
+
       setSubject("");
       setMessage("");
+      setCaptchaToken("");
+      setCaptchaResetKey((value) => value + 1);
       setFormMessage("Message sent. Centrum Support can now follow up with you.");
+    } catch (cause) {
+      setCaptchaToken("");
+      setCaptchaResetKey((value) => value + 1);
+      setFormError(cause instanceof Error ? cause.message : "Could not send your message right now.");
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   }
 
   function startLiveChat() {
@@ -154,6 +182,8 @@ export default function ContactPage() {
               Message
               <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Describe your question or issue..." rows={6} required />
             </label>
+
+            <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaResetKey} />
 
             {formError && <p className="form-alert form-alert-error">{formError}</p>}
             {formMessage && <p className="form-alert form-alert-success">{formMessage}</p>}

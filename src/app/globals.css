@@ -1954,13 +1954,15 @@ h1 {
 /* Admin inbox + scalable customer directory */
 .admin-filter-grid {
     display: grid;
-    grid-template-columns: minmax(260px, 1.6fr) repeat(3, minmax(150px, 0.7fr));
+    /* Search + Status + Plan + Node + Sort all stay on one desktop row. */
+    grid-template-columns: minmax(220px, 1.45fr) repeat(4, minmax(125px, 0.7fr));
     gap: 0.75rem;
     margin: 1rem 0;
 }
 
 .admin-filter-grid-contact {
-    grid-template-columns: minmax(280px, 1fr) minmax(170px, 0.28fr);
+    /* Search + Status + Sort all stay on one desktop row. */
+    grid-template-columns: minmax(260px, 1.6fr) minmax(160px, 0.48fr) minmax(160px, 0.58fr);
 }
 
 .admin-filter-grid input,
