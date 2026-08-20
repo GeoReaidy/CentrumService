@@ -1,0 +1,138 @@
+.mobileNav {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .desktopNav {
+    display: none !important;
+  }
+
+  .mobileNav {
+    display: block;
+    position: static;
+    justify-self: end;
+    z-index: 1002;
+  }
+
+  .mobileNavToggle {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid rgba(103, 142, 235, 0.3);
+    border-radius: 13px;
+    background: rgba(11, 23, 48, 0.9);
+    color: #eef4ff;
+    cursor: pointer;
+    list-style: none;
+    pointer-events: auto;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .mobileNavToggle::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobileNavToggle::marker {
+    display: none;
+    content: "";
+  }
+
+  .mobileNavToggle:focus-visible {
+    outline: 2px solid rgba(99, 153, 255, 0.95);
+    outline-offset: 3px;
+  }
+
+  .mobileNavToggle span {
+    display: block;
+    width: 19px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    transform-origin: center;
+    transition: transform 180ms ease, opacity 150ms ease;
+  }
+
+  .mobileNav[open] .mobileNavToggle span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .mobileNav[open] .mobileNavToggle span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .mobileNav[open] .mobileNavToggle span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  .mobileNavPanel {
+    position: absolute;
+    top: calc(100% + 0.45rem);
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.22rem;
+    padding: 0.55rem;
+    border: 1px solid rgba(91, 132, 226, 0.32);
+    border-radius: 16px;
+    background: rgba(6, 13, 29, 0.99);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.54);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: menuIn 160ms ease-out;
+  }
+
+  .mobileNavPanel a {
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    padding: 0.76rem 0.9rem;
+    align-items: center;
+    border-radius: 11px;
+    color: #aebddd;
+    font-size: 0.95rem;
+    font-weight: 650;
+    line-height: 1.2;
+  }
+
+  .mobileNavPanel a:hover,
+  .mobileNavPanel a:focus-visible {
+    background: rgba(78, 125, 255, 0.1);
+    color: #fff;
+  }
+
+  .mobileNavPanel a[class~="nav-link-active"] {
+    background: linear-gradient(135deg, rgba(47, 108, 255, 0.2), rgba(31, 67, 150, 0.12));
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(91, 132, 226, 0.28);
+  }
+}
+
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobileNavPanel,
+  .mobileNavToggle span {
+    animation: none;
+    transition: none;
+  }
+}
