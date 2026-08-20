@@ -1,6 +1,5 @@
 'use client';
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
@@ -15,32 +14,55 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="site-header">
-      <div className="container nav-wrap">
-        <Link href="/" className="brand" aria-label="Centrum Service homepage">
-          Centrum Service
-        </Link>
+      <header className="site-header">
+        <div className="container nav-wrap">
+          <a
+            href="/"
+            className="brand"
+            aria-label="Centrum Service homepage"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              flex: "0 1 auto",
+              lineHeight: 0,
+            }}
+          >
+            <img
+              src="/brand/centrum-logo-wide.png"
+              alt=""
+              aria-hidden="true"
+              width={1100}
+              height={194}
+              style={{
+                display: "block",
+                width: "clamp(180px, 22vw, 270px)",
+                height: "auto",
+                maxHeight: "48px",
+                objectFit: "contain",
+                objectPosition: "left center",
+              }}
+            />
+          </a>
 
-        <nav className="main-nav" aria-label="Main navigation">
-          {links.map((link) => {
-            const activePrefix = "activePrefix" in link ? link.activePrefix : link.href;
-            const active = link.href === "/"
-              ? pathname === "/"
-              : pathname === link.href || pathname.startsWith(`${activePrefix}/`) || pathname === activePrefix;
+          <nav className="main-nav" aria-label="Main navigation">
+            {links.map((link) => {
+              const activePrefix = "activePrefix" in link ? link.activePrefix : link.href;
+              const active = link.href === "/"
+                  ? pathname === "/"
+                  : pathname === link.href || pathname.startsWith(`${activePrefix}/`) || pathname === activePrefix;
 
-            return (
-              <Link
-                href={link.href}
-                key={link.href}
-                className={active ? "nav-link-active" : undefined}
-                aria-current={active ? "page" : undefined}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-    </header>
+              return (
+                  <a
+                      href={link.href}
+                      key={link.href}
+                      className={active ? "nav-link-active" : undefined}
+                  >
+                    {link.label}
+                  </a>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
   );
 }

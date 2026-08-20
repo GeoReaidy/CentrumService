@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { centrumBrandMarkDataUri } from "@/lib/brand-mark-data";
 
 export const alt = "Centrum Service — local internet service in North Bekaa";
 export const size = {
@@ -25,22 +26,13 @@ export default function OpenGraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
-          <div
-            style={{
-              width: 82,
-              height: 82,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 20,
-              background: "#12336f",
-              border: "4px solid #2f6cff",
-              fontSize: 50,
-              fontWeight: 900,
-            }}
-          >
-            C
-          </div>
+          <img
+            src={centrumBrandMarkDataUri}
+            alt=""
+            width={82}
+            height={82}
+            style={{ width: 82, height: 82, borderRadius: 20 }}
+          />
           <div
             style={{
               display: "flex",
