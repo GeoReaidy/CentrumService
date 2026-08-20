@@ -162,6 +162,21 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
     };
   }, [authReady, supabase, ticketId, user]);
 
+  useEffect(() => {
+    if (!supabase || !user || !ticket) return;
+    const href = `/portal/tickets/${ticketId}`;
+    void supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("recipient_id", user.id)
+      .eq("category", "tickets")
+      .eq("href", href)
+      .is("read_at", null)
+      .then(({ error }) => {
+        if (error && error.code !== "42P01") console.error("Ticket notification acknowledgement failed", error);
+      });
+  }, [supabase, ticket, ticketId, user]);
+
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
     const message = newMessage.trim();

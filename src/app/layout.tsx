@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -55,13 +56,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
+        <a className="skip-link" href="#main-content">Skip to main content</a>
         <SiteHeader />
-        <main className="container content">{children}</main>
-        <footer className="site-footer">
-          <div className="container">
-            <p>Centrum Service © {new Date().getFullYear()} - Reliable internet for Bekaa.</p>
-          </div>
-        </footer>
+        <main id="main-content" className="container content" tabIndex={-1}>{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

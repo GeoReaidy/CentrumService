@@ -100,6 +100,13 @@ type DbServiceRequest = {
   created_at: string;
 };
 
+type DbCustomizationRequest = {
+  id: number;
+  preferred_plan_name: string | null;
+  status: string;
+  created_at: string;
+};
+
 export default function PortalDashboardPage() {
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
@@ -113,6 +120,7 @@ export default function PortalDashboardPage() {
   const [payments, setPayments] = useState<DbPayment[]>([]);
   const [announcements, setAnnouncements] = useState<DbAnnouncement[]>([]);
   const [serviceRequests, setServiceRequests] = useState<DbServiceRequest[]>([]);
+  const [customizationRequests, setCustomizationRequests] = useState<DbCustomizationRequest[]>([]);
   const [globalMaintenance, setGlobalMaintenance] = useState(false);
   const [monitorHeartbeat, setMonitorHeartbeat] = useState<string | null>(null);
   const [dataError, setDataError] = useState("");
@@ -122,12 +130,17 @@ export default function PortalDashboardPage() {
   const [requestError, setRequestError] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<PortalWorkspace>("overview");
+  const [notificationDeepLink, setNotificationDeepLink] = useState({
+    highlightRequest: "",
+    highlightCustomization: "",
+    highlightAnnouncement: "",
+  });
 
   const fetchDashboard = useCallback(async (userId: string) => {
     if (!supabase) return;
     setDataError("");
 
-    const [profileResult, ticketsResult, paymentsResult, announcementsResult, requestsResult, networkResult] = await Promise.all([
+    const [profileResult, ticketsResult, paymentsResult, announcementsResult, requestsResult, customizationResult, networkResult] = await Promise.all([
       supabase
         .from("profiles")
         .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date")
@@ -156,10 +169,16 @@ export default function PortalDashboardPage() {
         .eq("customer_id", userId)
         .order("created_at", { ascending: false })
         .limit(8),
+      supabase
+        .from("service_customization_requests")
+        .select("id,preferred_plan_name,status,created_at")
+        .eq("customer_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(5),
       supabase.rpc("get_my_network_status"),
     ]);
 
-    const firstError = profileResult.error || ticketsResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || networkResult.error;
+    const firstError = profileResult.error || ticketsResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error || networkResult.error;
     if (firstError) {
       console.error("Customer dashboard data load failed", firstError);
       setDataError(toFriendlyErrorMessage(firstError, "Some account information could not be loaded right now."));
@@ -171,6 +190,7 @@ export default function PortalDashboardPage() {
     setPayments((paymentsResult.data as DbPayment[] | null) ?? []);
     setAnnouncements((announcementsResult.data as DbAnnouncement[] | null) ?? []);
     setServiceRequests((requestsResult.data as DbServiceRequest[] | null) ?? []);
+    setCustomizationRequests((customizationResult.data as DbCustomizationRequest[] | null) ?? []);
     const networkRow = (Array.isArray(networkResult.data) ? networkResult.data[0] : null) as ({
       node_id: string | null; node_name: string | null; monitor_enabled: boolean; probe_status: ProbeStatus; latency_ms: number | null;
       last_checked_at: string | null; last_seen_at: string | null; maintenance_mode: boolean; maintenance_message: string | null;
@@ -330,6 +350,34 @@ export default function PortalDashboardPage() {
     router.push("/portal/login");
     router.refresh();
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedWorkspace = params.get("workspace");
+    if (requestedWorkspace && ["overview", "service", "billing", "support", "account"].includes(requestedWorkspace)) {
+      setActiveWorkspace(requestedWorkspace as PortalWorkspace);
+    }
+    setNotificationDeepLink({
+      highlightRequest: params.get("highlightRequest") ?? "",
+      highlightCustomization: params.get("highlightCustomization") ?? "",
+      highlightAnnouncement: params.get("highlightAnnouncement") ?? "",
+    });
+  }, []);
+
+  useEffect(() => {
+    const targetId = notificationDeepLink.highlightRequest
+      ? `service-request-${notificationDeepLink.highlightRequest}`
+      : notificationDeepLink.highlightCustomization
+        ? `customization-request-${notificationDeepLink.highlightCustomization}`
+        : notificationDeepLink.highlightAnnouncement
+          ? `announcement-${notificationDeepLink.highlightAnnouncement}`
+          : null;
+    if (!targetId) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [activeWorkspace, announcements, customizationRequests, notificationDeepLink, serviceRequests]);
 
   async function submitServiceRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -586,7 +634,11 @@ export default function PortalDashboardPage() {
                   <h2>Service Requests</h2>
                   <div className="portal-feed compact-scroll-list">
                     {serviceRequests.length ? serviceRequests.map((request) => (
-                      <div className="portal-feed-item" key={request.id}>
+                      <div
+                        className={`portal-feed-item ${notificationDeepLink.highlightRequest === String(request.id) ? "notification-highlight" : ""}`}
+                        id={`service-request-${request.id}`}
+                        key={request.id}
+                      >
                         <div className="portal-feed-heading">
                           <strong>#{request.id} · {requestTypeLabels[request.request_type] ?? formatStatus(request.request_type)}</strong>
                           <span className={`status-pill status-${request.status}`}>{requestStatusLabels[request.status] ?? formatStatus(request.status)}</span>
@@ -599,6 +651,27 @@ export default function PortalDashboardPage() {
                   </div>
                 </article>
               </div>
+
+              <article className="card" style={{ marginTop: "1rem" }}>
+                <div className="badge card-badge">Recommendations</div>
+                <h2>Customization Requests</h2>
+                <p className="page-intro">Requests submitted while signed in appear here so you can follow their status.</p>
+                <div className="portal-feed compact-scroll-list">
+                  {customizationRequests.length ? customizationRequests.map((request) => (
+                    <div
+                      className={`portal-feed-item ${notificationDeepLink.highlightCustomization === String(request.id) ? "notification-highlight" : ""}`}
+                      id={`customization-request-${request.id}`}
+                      key={request.id}
+                    >
+                      <div className="portal-feed-heading">
+                        <strong>#{request.id} · {request.preferred_plan_name || "Service recommendation"}</strong>
+                        <span className={`status-pill status-${request.status}`}>{formatStatus(request.status)}</span>
+                      </div>
+                      <span>{formatDateTime(request.created_at)}</span>
+                    </div>
+                  )) : <p className="empty-state">No signed-in customization requests yet.</p>}
+                </div>
+              </article>
             </div>
           ) : null}
 
@@ -694,7 +767,11 @@ export default function PortalDashboardPage() {
                   <h2>Announcements</h2>
                   <div className="portal-feed compact-scroll-list">
                     {announcements.length ? announcements.map((announcement) => (
-                      <div className="portal-feed-item" key={announcement.id}>
+                      <div
+                        className={`portal-feed-item ${notificationDeepLink.highlightAnnouncement === String(announcement.id) ? "notification-highlight" : ""}`}
+                        id={`announcement-${announcement.id}`}
+                        key={announcement.id}
+                      >
                         <strong>{announcement.title}</strong>
                         <p>{announcement.body}</p>
                         <span>{formatDateTime(announcement.created_at)}</span>

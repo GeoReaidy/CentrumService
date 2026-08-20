@@ -35,6 +35,7 @@ export default function AdminOperationsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [activeWorkspace, setActiveWorkspace] = useState<OperationsWorkspace>("overview");
+  const [notificationHighlight, setNotificationHighlight] = useState("");
 
   const [paymentCustomerId, setPaymentCustomerId] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -119,6 +120,29 @@ export default function AdminOperationsPage() {
     void boot();
     return () => { mounted = false; };
   }, [fetchAll, router, supabase]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedWorkspace = params.get("workspace");
+    if (requestedWorkspace && ["overview", "payments", "announcements", "requests", "customization"].includes(requestedWorkspace)) {
+      setActiveWorkspace(requestedWorkspace as OperationsWorkspace);
+    }
+    setNotificationHighlight(params.get("highlight") ?? "");
+  }, []);
+
+  useEffect(() => {
+    if (!notificationHighlight) return;
+    const targetId = activeWorkspace === "requests"
+      ? `admin-service-request-${notificationHighlight}`
+      : activeWorkspace === "customization"
+        ? `admin-customization-request-${notificationHighlight}`
+        : null;
+    if (!targetId) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [activeWorkspace, customizationRequests, notificationHighlight, requests]);
 
   const customerMap = useMemo(() => new Map(customers.map((customer) => [customer.id, customer])), [customers]);
   const planMap = useMemo(() => new Map(plans.map((plan) => [plan.id, plan])), [plans]);
@@ -217,6 +241,20 @@ export default function AdminOperationsPage() {
     if (assignedPlan) setPaymentAmount(String(assignedPlan.monthly_price_usd));
   }
 
+  async function acknowledgeAdminNotification(sourceType: string, sourceId: number) {
+    if (!supabase || !account) return;
+    const { error: acknowledgementError } = await supabase
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("recipient_id", account.id)
+      .eq("source_type", sourceType)
+      .eq("source_id", String(sourceId))
+      .is("read_at", null);
+    if (acknowledgementError && acknowledgementError.code !== "42P01") {
+      console.error("Admin notification acknowledgement failed", acknowledgementError);
+    }
+  }
+
   async function addPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !paymentCustomerId) return;
@@ -302,6 +340,7 @@ export default function AdminOperationsPage() {
     if (updateError) setError(toFriendlyErrorMessage(updateError, "The service request could not be updated. Please try again."));
     else {
       setMessage(`Service request #${request.id} updated.`);
+      await acknowledgeAdminNotification("service_request", request.id);
       await fetchAll();
     }
     setSavingRequestId(null);
@@ -313,7 +352,10 @@ export default function AdminOperationsPage() {
     setError("");
     const { error: updateError } = await supabase.from("service_customization_requests").update({ status, updated_at: new Date().toISOString() }).eq("id", request.id);
     if (updateError) setError(toFriendlyErrorMessage(updateError, "The customization request could not be updated. Please try again."));
-    else await fetchAll();
+    else {
+      await acknowledgeAdminNotification("service_customization_request", request.id);
+      await fetchAll();
+    }
     setSavingCustomizationId(null);
   }
 
@@ -322,7 +364,10 @@ export default function AdminOperationsPage() {
     setSavingCustomizationId(request.id);
     const { error: deleteError } = await supabase.from("service_customization_requests").delete().eq("id", request.id);
     if (deleteError) setError(toFriendlyErrorMessage(deleteError, "The customization request could not be deleted. Please try again."));
-    else await fetchAll();
+    else {
+      await acknowledgeAdminNotification("service_customization_request", request.id);
+      await fetchAll();
+    }
     setSavingCustomizationId(null);
   }
 
@@ -589,7 +634,11 @@ export default function AdminOperationsPage() {
           {visibleRequests.length ? visibleRequests.map((request) => {
             const draft = requestDrafts[request.id] ?? { status: request.status, admin_note: request.admin_note ?? "" };
             return (
-              <div className="request-admin-row" key={request.id}>
+              <div
+                className={`request-admin-row ${notificationHighlight === String(request.id) ? "notification-highlight" : ""}`}
+                id={`admin-service-request-${request.id}`}
+                key={request.id}
+              >
                 <div className="request-admin-summary"><strong>#{request.id} · {customerLabel(request.customer_id)}</strong><span>{formatStatus(request.request_type)} · {formatDateTime(request.created_at)}</span><p>{request.details}</p></div>
                 <div className="request-admin-controls">
                   <select value={draft.status} onChange={(event) => setRequestDrafts((current) => ({ ...current, [request.id]: { ...draft, status: event.target.value } }))}>{requestStatuses.map((status) => <option key={status} value={status}>{formatStatus(status)}</option>)}</select>
@@ -625,7 +674,11 @@ export default function AdminOperationsPage() {
         </div>
         <div className="customization-admin-list fixed-scroll-list">
           {visibleCustomizationRequests.length ? visibleCustomizationRequests.map((request) => (
-            <article className="customization-admin-row" key={request.id}>
+            <article
+              className={`customization-admin-row ${notificationHighlight === String(request.id) ? "notification-highlight" : ""}`}
+              id={`admin-customization-request-${request.id}`}
+              key={request.id}
+            >
               <div className="customization-admin-heading">
                 <div><strong>#{request.id} · {request.full_name}</strong><a href={`mailto:${request.email}`}>{request.email}</a></div>
                 <span className={`status-pill status-${request.status}`}>{formatStatus(request.status)}</span>

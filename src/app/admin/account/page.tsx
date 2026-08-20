@@ -8,6 +8,7 @@ import { AsyncState } from "@/components/AsyncState";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
+import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
 
 export default function AdminAccountPage() {
   const router = useRouter();
@@ -279,6 +280,10 @@ export default function AdminAccountPage() {
             </button>
           </form>
         </article>
+      </div>
+
+      <div style={{ marginTop: "1rem" }}>
+        <NotificationPreferencesCard userId={account.id} isAdmin />
       </div>
 
       <article

@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
+import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
 
 export default function PortalAccountPage() {
   const router = useRouter();
@@ -146,6 +147,8 @@ export default function PortalAccountPage() {
             <Link href="/portal/forgot-password" className="btn btn-secondary">Reset Password</Link>
           </div>
         </article>
+
+        <NotificationPreferencesCard userId={account.id} />
 
         <article
           className="card"

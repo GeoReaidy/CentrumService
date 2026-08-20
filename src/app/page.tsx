@@ -103,9 +103,10 @@ export default function HomePage() {
     void fetchNetworkStatus();
     void fetchCoverageAreas();
 
+    // Network health changes frequently; coverage does not. Poll only the
+    // status endpoint to avoid repeating a static coverage query every 15s.
     const interval = window.setInterval(() => {
       void fetchNetworkStatus();
-      void fetchCoverageAreas();
     }, 15000);
 
     const onFocus = () => {
@@ -138,6 +139,8 @@ export default function HomePage() {
               className={`badge badge-pulse page-badge home-status-${statusSlug(
                   networkStatus
               )}`}
+              role="status"
+              aria-live="polite"
           >
             Network Status: {networkStatus}
           </div>

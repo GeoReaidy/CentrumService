@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check:routes": "node check.js"
+    "check:routes": "node check.js",
+    "backup:prod": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/backup-production.ps1",
+    "backup:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-backup.ps1",
+    "qa:prod": "node ./scripts/production-qa.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
