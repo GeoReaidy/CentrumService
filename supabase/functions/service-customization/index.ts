@@ -16,6 +16,10 @@ type RequestBody = {
   notes?: unknown;
   website?: unknown;
   captcha_token?: unknown;
+  location_latitude?: unknown;
+  location_longitude?: unknown;
+  location_accuracy_m?: unknown;
+  location_captured_at?: unknown;
 };
 
 const MAX_BODY_BYTES = 32_000;
@@ -38,42 +42,13 @@ function readSecretKey() {
 
 function allowedOrigins() {
   const configured = Deno.env.get("CENTRUM_ALLOWED_ORIGINS");
-  const extra = configured
-    ? configured.split(",").map((value) => value.trim()).filter(Boolean)
-    : [];
-  return new Set([...DEFAULT_ORIGINS, ...extra]);
-}
-
-function isCentrumOrigin(origin: string) {
-  if (allowedOrigins().has(origin)) return true;
-
-  try {
-    const url = new URL(origin);
-
-    // Local development only. CORS is not authentication; production requests
-    // are still protected by rate limiting / validation in the function body.
-    if (url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")) {
-      return true;
-    }
-
-    // Allow Centrum's own Netlify production/branch/deploy URLs, e.g.
-    // centrum-beta-v3--centrumservice.netlify.app or <deploy>--centrumservice.netlify.app.
-    if (url.protocol === "https:" && (
-      url.hostname === "centrumservice.netlify.app" ||
-      url.hostname.endsWith("--centrumservice.netlify.app")
-    )) {
-      return true;
-    }
-  } catch {
-    return false;
-  }
-
-  return false;
+  if (!configured) return DEFAULT_ORIGINS;
+  return configured.split(",").map((value) => value.trim()).filter(Boolean);
 }
 
 function originHeaders(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin || !isCentrumOrigin(origin)) return null;
+  if (!origin || !allowedOrigins().includes(origin)) return null;
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
@@ -100,6 +75,17 @@ function text(value: unknown, max = 500) {
 function nullableText(value: unknown, max = 500) {
   const normalized = text(value, max);
   return normalized || null;
+}
+function boundedNumber(value: unknown, min: number, max: number) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number) || number < min || number > max) return null;
+  return number;
+}
+function optionalTimestamp(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 function escapeHtml(value: string) {
   return value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character] ?? character));
@@ -187,6 +173,18 @@ Deno.serve(async (request) => {
       if (plan?.name) preferredPlanName = plan.name;
     }
 
+    const latitudeProvided = body.location_latitude !== null && body.location_latitude !== undefined && body.location_latitude !== "";
+    const longitudeProvided = body.location_longitude !== null && body.location_longitude !== undefined && body.location_longitude !== "";
+    const locationLatitude = boundedNumber(body.location_latitude, -90, 90);
+    const locationLongitude = boundedNumber(body.location_longitude, -180, 180);
+    const locationAccuracy = boundedNumber(body.location_accuracy_m, 0, 1_000_000);
+    if (latitudeProvided !== longitudeProvided || (latitudeProvided && (locationLatitude === null || locationLongitude === null))) {
+      return response(request, { error: "The attached location is invalid. Please capture it again.", request_id: rid }, 400);
+    }
+    const locationCapturedAt = locationLatitude !== null && locationLongitude !== null
+      ? (optionalTimestamp(body.location_captured_at) ?? new Date().toISOString())
+      : null;
+
     let customerId: string | null = null;
     const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
     if (bearer) {
@@ -209,6 +207,10 @@ Deno.serve(async (request) => {
       preferred_plan_name: preferredPlanName,
       current_provider: nullableText(body.current_provider, 120),
       notes: nullableText(body.notes, 2000),
+      location_latitude: locationLatitude,
+      location_longitude: locationLongitude,
+      location_accuracy_m: locationAccuracy,
+      location_captured_at: locationCapturedAt,
       status: "new",
     };
 
@@ -225,13 +227,19 @@ Deno.serve(async (request) => {
     let emailError: string | null = null;
 
     if (resendApiKey) {
+      const locationText = locationLatitude !== null && locationLongitude !== null
+        ? `${locationLatitude.toFixed(6)}, ${locationLongitude.toFixed(6)}${locationAccuracy !== null ? ` (±${Math.round(locationAccuracy)} m)` : ""}`
+        : "—";
       const rows = [
         ["Name", fullName], ["Email", email], ["Phone", payload.phone ?? "—"], ["Address", payload.address ?? "—"],
-        ["Service type", payload.service_type], ["People", payload.people_count ?? "—"], ["Devices", payload.device_count ?? "—"],
+        ["Exact location", locationText], ["Service type", payload.service_type], ["People", payload.people_count ?? "—"], ["Devices", payload.device_count ?? "—"],
         ["Usage", usageTypes.join(", ") || "—"], ["Budget", payload.budget_range ?? "—"], ["Preferred plan", preferredPlanName ?? "Recommend one"],
         ["Current provider", payload.current_provider ?? "—"], ["Notes", payload.notes ?? "—"],
       ];
-      const html = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#111827"><h2>New Centrum service customization request</h2><p>Request #${inserted.id} was submitted from the Centrum website.</p><table style="width:100%;border-collapse:collapse">${rows.map(([label, value]) => `<tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:700;width:170px">${escapeHtml(label)}</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(value))}</td></tr>`).join("")}</table></div>`;
+      const mapLink = locationLatitude !== null && locationLongitude !== null
+        ? `<p><a href="https://www.google.com/maps?q=${locationLatitude},${locationLongitude}">Open attached service location in Maps</a></p>`
+        : "";
+      const html = `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#111827"><h2>New Centrum service customization request</h2><p>Request #${inserted.id} was submitted from the Centrum website.</p>${mapLink}<table style="width:100%;border-collapse:collapse">${rows.map(([label, value]) => `<tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:700;width:170px">${escapeHtml(label)}</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(value))}</td></tr>`).join("")}</table></div>`;
       const emailResponse = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { authorization: `Bearer ${resendApiKey}`, "content-type": "application/json" },

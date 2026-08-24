@@ -8,13 +8,15 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
+import { locationMapUrl } from "@/components/LocationCapture";
 
 type Customer = { id: string; full_name: string | null; plan_id: number | null };
 type Plan = { id: number; name: string; monthly_price_usd: number };
 type Payment = { id: number; customer_id: string | null; amount_usd: number; paid_at: string; payment_method: string; reference: string | null; notes: string | null };
 type Announcement = { id: number; title: string; body: string; is_published: boolean; starts_at: string; ends_at: string | null; created_at: string };
-type ServiceRequest = { id: number; customer_id: string; request_type: string; details: string; status: string; admin_note: string | null; created_at: string };
-type CustomizationRequest = { id: number; customer_id: string | null; full_name: string; email: string; phone: string | null; address: string | null; service_type: string; people_count: string | null; device_count: string | null; usage_types: string[]; budget_range: string | null; preferred_plan_name: string | null; current_provider: string | null; notes: string | null; status: "new" | "contacted" | "completed" | "closed"; email_sent_at: string | null; email_error: string | null; created_at: string };
+type ServiceRequest = { id: number; customer_id: string; request_type: string; details: string; status: string; admin_note: string | null; created_at: string; location_latitude: number | null; location_longitude: number | null; location_accuracy_m: number | null; location_captured_at: string | null };
+type CustomizationRequest = { id: number; customer_id: string | null; full_name: string; email: string; phone: string | null; address: string | null; service_type: string; people_count: string | null; device_count: string | null; usage_types: string[]; budget_range: string | null; preferred_plan_name: string | null; current_provider: string | null; notes: string | null; status: "new" | "contacted" | "completed" | "closed"; email_sent_at: string | null; email_error: string | null; created_at: string; location_latitude: number | null; location_longitude: number | null; location_accuracy_m: number | null; location_captured_at: string | null };
+type CustomerLocation = { customer_id: string; latitude: number; longitude: number; accuracy_m: number | null; captured_at: string; updated_at: string };
 
 const requestStatuses = ["submitted", "reviewing", "scheduled", "completed", "declined", "cancelled"];
 const paymentMethods = ["cash", "bank_transfer", "card", "other"];
@@ -34,6 +36,7 @@ export default function AdminOperationsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [customizationRequests, setCustomizationRequests] = useState<CustomizationRequest[]>([]);
+  const [customerLocations, setCustomerLocations] = useState<CustomerLocation[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [activeWorkspace, setActiveWorkspace] = useState<OperationsWorkspace>("overview");
@@ -75,16 +78,17 @@ export default function AdminOperationsPage() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
-    const [customersResult, plansResult, paymentsResult, monthlyPaymentsResult, announcementsResult, requestsResult, customizationResult] = await Promise.all([
+    const [customersResult, plansResult, paymentsResult, monthlyPaymentsResult, announcementsResult, requestsResult, customizationResult, customerLocationsResult] = await Promise.all([
       supabase.from("profiles").select("id,full_name,plan_id").eq("role", "customer").order("full_name", { ascending: true }).limit(1000),
       supabase.from("plans").select("id,name,monthly_price_usd").order("monthly_price_usd", { ascending: true }),
       supabase.from("payments").select("id,customer_id,amount_usd,paid_at,payment_method,reference,notes").order("paid_at", { ascending: false }).limit(500),
       supabase.from("payments").select("amount_usd,paid_at").gte("paid_at", monthStart).lt("paid_at", nextMonthStart).order("paid_at", { ascending: true }).limit(5000),
       supabase.from("announcements").select("id,title,body,is_published,starts_at,ends_at,created_at").order("created_at", { ascending: false }).limit(30),
-      supabase.from("service_requests").select("id,customer_id,request_type,details,status,admin_note,created_at").order("created_at", { ascending: false }).limit(200),
-      supabase.from("service_customization_requests").select("id,customer_id,full_name,email,phone,address,service_type,people_count,device_count,usage_types,budget_range,preferred_plan_name,current_provider,notes,status,email_sent_at,email_error,created_at").order("created_at", { ascending: false }).limit(300),
+      supabase.from("service_requests").select("id,customer_id,request_type,details,status,admin_note,created_at,location_latitude,location_longitude,location_accuracy_m,location_captured_at").order("created_at", { ascending: false }).limit(200),
+      supabase.from("service_customization_requests").select("id,customer_id,full_name,email,phone,address,service_type,people_count,device_count,usage_types,budget_range,preferred_plan_name,current_provider,notes,status,email_sent_at,email_error,created_at,location_latitude,location_longitude,location_accuracy_m,location_captured_at").order("created_at", { ascending: false }).limit(300),
+      supabase.from("customer_locations").select("customer_id,latitude,longitude,accuracy_m,captured_at,updated_at").limit(1000),
     ]);
-    const firstError = customersResult.error || plansResult.error || paymentsResult.error || monthlyPaymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error;
+    const firstError = customersResult.error || plansResult.error || paymentsResult.error || monthlyPaymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error || customerLocationsResult.error;
     if (firstError) { console.error("Admin operations data load failed", firstError); setError(toFriendlyErrorMessage(firstError, "Customer operations data could not be loaded right now.")); }
     else setError("");
     setCustomers((customersResult.data as Customer[] | null) ?? []);
@@ -97,6 +101,7 @@ export default function AdminOperationsPage() {
     const nextRequests = (requestsResult.data as ServiceRequest[] | null) ?? [];
     setRequests(nextRequests);
     setCustomizationRequests((customizationResult.data as CustomizationRequest[] | null) ?? []);
+    setCustomerLocations((customerLocationsResult.data as CustomerLocation[] | null) ?? []);
     setRequestDrafts((current) => {
       const next = { ...current };
       for (const request of nextRequests) {
@@ -155,6 +160,7 @@ export default function AdminOperationsPage() {
 
   const customerMap = useMemo(() => new Map(customers.map((customer) => [customer.id, customer])), [customers]);
   const planMap = useMemo(() => new Map(plans.map((plan) => [plan.id, plan])), [plans]);
+  const customerLocationMap = useMemo(() => new Map(customerLocations.map((location) => [location.customer_id, location])), [customerLocations]);
 
   const operationsSummary = useMemo(() => {
     const now = new Date();
@@ -651,13 +657,18 @@ export default function AdminOperationsPage() {
         <div className="request-admin-list fixed-scroll-list">
           {visibleRequests.length ? visibleRequests.map((request) => {
             const draft = requestDrafts[request.id] ?? { status: request.status, admin_note: request.admin_note ?? "" };
+            const attachedLocation = request.location_latitude !== null && request.location_longitude !== null
+              ? { latitude: request.location_latitude, longitude: request.location_longitude }
+              : null;
+            const savedLocation = customerLocationMap.get(request.customer_id) ?? null;
+            const effectiveLocation = attachedLocation ?? savedLocation;
             return (
               <div
                 className={`request-admin-row ${notificationHighlight === String(request.id) ? "notification-highlight" : ""}`}
                 id={`admin-service-request-${request.id}`}
                 key={request.id}
               >
-                <div className="request-admin-summary"><strong>#{request.id} · {customerLabel(request.customer_id)}</strong><span>{formatStatus(request.request_type)} · {formatDateTime(request.created_at)}</span><p>{request.details}</p></div>
+                <div className="request-admin-summary"><strong>#{request.id} · {customerLabel(request.customer_id)}</strong><span>{formatStatus(request.request_type)} · {formatDateTime(request.created_at)}</span><p>{request.details}</p>{effectiveLocation ? <a className="manager-location-link" href={locationMapUrl({ latitude: effectiveLocation.latitude, longitude: effectiveLocation.longitude })} target="_blank" rel="noreferrer">{attachedLocation ? "Open attached visit location ↗" : "Open saved customer location ↗"}</a> : null}</div>
                 <div className="request-admin-controls">
                   <select value={draft.status} onChange={(event) => setRequestDrafts((current) => ({ ...current, [request.id]: { ...draft, status: event.target.value } }))}>{requestStatuses.map((status) => <option key={status} value={status}>{formatStatus(status)}</option>)}</select>
                   <input value={draft.admin_note} onChange={(event) => setRequestDrafts((current) => ({ ...current, [request.id]: { ...draft, admin_note: event.target.value } }))} placeholder="Message visible to customer" />
@@ -691,7 +702,13 @@ export default function AdminOperationsPage() {
           <select value={customizationSort} onChange={(event) => setCustomizationSort(event.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
         </div>
         <div className="customization-admin-list fixed-scroll-list">
-          {visibleCustomizationRequests.length ? visibleCustomizationRequests.map((request) => (
+          {visibleCustomizationRequests.length ? visibleCustomizationRequests.map((request) => {
+            const attachedLocation = request.location_latitude !== null && request.location_longitude !== null
+              ? { latitude: request.location_latitude, longitude: request.location_longitude }
+              : null;
+            const savedLocation = request.customer_id ? (customerLocationMap.get(request.customer_id) ?? null) : null;
+            const effectiveLocation = attachedLocation ?? savedLocation;
+            return (
             <article
               className={`customization-admin-row ${notificationHighlight === String(request.id) ? "notification-highlight" : ""}`}
               id={`admin-customization-request-${request.id}`}
@@ -704,6 +721,7 @@ export default function AdminOperationsPage() {
               <div className="customization-admin-grid">
                 <span><strong>Phone</strong>{request.phone || "—"}</span><span><strong>Address</strong>{request.address || "—"}</span><span><strong>Type</strong>{formatStatus(request.service_type)}</span><span><strong>Users / devices</strong>{request.people_count || "—"} / {request.device_count || "—"}</span><span><strong>Usage</strong>{request.usage_types.join(", ") || "—"}</span><span><strong>Budget</strong>{request.budget_range || "—"}</span><span><strong>Preferred plan</strong>{request.preferred_plan_name || "Recommend one"}</span><span><strong>Submitted</strong>{formatDateTime(request.created_at)}</span>
               </div>
+              {effectiveLocation ? <a className="manager-location-link" href={locationMapUrl({ latitude: effectiveLocation.latitude, longitude: effectiveLocation.longitude })} target="_blank" rel="noreferrer">{attachedLocation ? "Open attached service location ↗" : "Open saved customer location ↗"}</a> : null}
               {request.notes ? <p className="customization-admin-notes">{request.notes}</p> : null}
               {request.email_error && !request.email_sent_at ? <p className="form-alert form-alert-error">Email not sent: {request.email_error}</p> : <p className="field-note">Email: {request.email_sent_at ? "sent" : "not configured / pending"}</p>}
               <div className="plan-actions">
@@ -712,7 +730,8 @@ export default function AdminOperationsPage() {
                 <button type="button" className="btn btn-danger btn-compact" onClick={() => void deleteCustomizationRequest(request)} disabled={savingCustomizationId === request.id}>Delete</button>
               </div>
             </article>
-          )) : <p className="empty-state">No customization requests match the current search or filters.</p>}
+            );
+          }) : <p className="empty-state">No customization requests match the current search or filters.</p>}
         </div>
       </article>
             </div>

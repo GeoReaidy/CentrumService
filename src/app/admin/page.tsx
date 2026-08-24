@@ -17,6 +17,7 @@ import {
 import { AsyncState } from "@/components/AsyncState";
 import { MonitorAgentsPanel } from "@/components/MonitorAgentsPanel";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
+import { locationMapUrl } from "@/components/LocationCapture";
 
 type DbProfile = {
   id: string;
@@ -31,6 +32,15 @@ type DbProfile = {
   renewal_auto_advance: boolean;
   renewal_interval_value: number;
   renewal_interval_unit: "week" | "month" | "year";
+};
+
+type DbCustomerLocation = {
+  customer_id: string;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  captured_at: string;
+  updated_at: string;
 };
 
 type DbPlan = {
@@ -129,6 +139,7 @@ export default function AdminPage() {
   const [monitorHeartbeat, setMonitorHeartbeat] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [users, setUsers] = useState<DbProfile[]>([]);
+  const [customerLocations, setCustomerLocations] = useState<DbCustomerLocation[]>([]);
   const [plans, setPlans] = useState<DbPlan[]>([]);
   const [nodes, setNodes] = useState<DbNode[]>([]);
   const [tickets, setTickets] = useState<DbTicket[]>([]);
@@ -240,6 +251,19 @@ export default function AdminPage() {
     setUsers((data as DbProfile[] | null) ?? []);
   }, [supabase]);
 
+  const fetchCustomerLocations = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from("customer_locations")
+      .select("customer_id,latitude,longitude,accuracy_m,captured_at,updated_at");
+    if (error) {
+      console.error("Admin customer locations load failed", error);
+      setUserError((current) => current || toFriendlyErrorMessage(error, "Saved customer locations could not be loaded right now."));
+      return;
+    }
+    setCustomerLocations((data as DbCustomerLocation[] | null) ?? []);
+  }, [supabase]);
+
   const fetchTickets = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase.from("tickets").select("id,subject,status,created_at").order("created_at", { ascending: false }).limit(100);
@@ -298,7 +322,7 @@ export default function AdminPage() {
         return;
       }
       setAccount(data.user);
-      await Promise.all([fetchMonitoringSettings(), fetchPlans(), fetchNodes(), fetchUsers(), fetchTickets(), fetchContactInquiries(), fetchCoverageRegions()]);
+      await Promise.all([fetchMonitoringSettings(), fetchPlans(), fetchNodes(), fetchUsers(), fetchCustomerLocations(), fetchTickets(), fetchContactInquiries(), fetchCoverageRegions()]);
       if (mounted) setIsLoading(false);
     }
 
@@ -319,7 +343,7 @@ export default function AdminPage() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router, supabase, fetchMonitoringSettings, fetchPlans, fetchNodes, fetchUsers, fetchTickets, fetchContactInquiries, fetchCoverageRegions]);
+  }, [router, supabase, fetchMonitoringSettings, fetchPlans, fetchNodes, fetchUsers, fetchCustomerLocations, fetchTickets, fetchContactInquiries, fetchCoverageRegions]);
 
   useEffect(() => {
     if (!supabase || !account) return;
@@ -392,6 +416,8 @@ export default function AdminPage() {
       return matchesSearch && (ticketStatusFilter === "all" || ticket.status === ticketStatusFilter);
     }).sort((a, b) => ticketSort === "oldest" ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime() : new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [tickets, ticketSearch, ticketStatusFilter, ticketSort]);
+
+  const customerLocationMap = useMemo(() => new Map(customerLocations.map((location) => [location.customer_id, location])), [customerLocations]);
 
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
@@ -468,7 +494,7 @@ export default function AdminPage() {
 
   async function retryActiveWorkspace() {
     if (activeWorkspace === "customers") {
-      await Promise.all([fetchUsers(), fetchPlans(), fetchNodes()]);
+      await Promise.all([fetchUsers(), fetchCustomerLocations(), fetchPlans(), fetchNodes()]);
       return;
     }
 
@@ -492,6 +518,7 @@ export default function AdminPage() {
       fetchPlans(),
       fetchNodes(),
       fetchUsers(),
+      fetchCustomerLocations(),
       fetchTickets(),
       fetchContactInquiries(),
       fetchCoverageRegions(),
@@ -1359,6 +1386,7 @@ export default function AdminPage() {
             const isEditing = selectedUserId === user.id;
             const selectedPlan = plans.find((plan) => String(plan.id) === draft.plan_id);
             const selectedNode = nodes.find((node) => node.id === draft.node_id);
+            const savedCustomerLocation = customerLocationMap.get(user.id) ?? null;
             return (
               <div className={`customer-row ${isEditing ? "customer-row-open" : ""}`} key={user.id}>
                 <div className="customer-summary">
@@ -1371,6 +1399,7 @@ export default function AdminPage() {
                     <span>{user.address || "No address"}</span>
                     <span>{selectedNode?.name || "No node"}</span>
                     <span>{selectedPlan?.name || "No plan"}</span>
+                    <span>{savedCustomerLocation ? "Location saved" : "No saved location"}</span>
                     <span className={`status-pill status-${user.service_status}`}>{user.service_status.replaceAll("_", " ")}</span>
                   </div>
                   <button type="button" className="btn btn-secondary btn-compact" onClick={() => setSelectedUserId(isEditing ? null : user.id)}>
@@ -1383,6 +1412,16 @@ export default function AdminPage() {
                     <label>Full name<input value={draft.full_name} onChange={(event) => updateDraft(user, { full_name: event.target.value })} placeholder="Customer name" /></label>
                     <label>Phone<input value={draft.phone} onChange={(event) => updateDraft(user, { phone: event.target.value })} placeholder="+961 ..." /></label>
                     <label>Address<input value={draft.address} onChange={(event) => updateDraft(user, { address: event.target.value })} placeholder="Street, village, building..." /></label>
+                    <div className="customer-location-readonly">
+                      <span className="admin-overview-label">Saved Service Location</span>
+                      {savedCustomerLocation ? (
+                        <>
+                          <strong>{savedCustomerLocation.latitude.toFixed(6)}, {savedCustomerLocation.longitude.toFixed(6)}</strong>
+                          <small>{savedCustomerLocation.accuracy_m ? `±${Math.round(savedCustomerLocation.accuracy_m)} m · ` : ""}Updated {new Date(savedCustomerLocation.updated_at).toLocaleString()}</small>
+                          <a className="btn btn-secondary btn-compact" href={locationMapUrl({ latitude: savedCustomerLocation.latitude, longitude: savedCustomerLocation.longitude })} target="_blank" rel="noreferrer">Open in Maps ↗</a>
+                        </>
+                      ) : <span className="field-note">This customer has not saved a service location yet.</span>}
+                    </div>
                     <label>Service node
                       <select value={draft.node_id} onChange={(event) => updateDraft(user, { node_id: event.target.value })}>
                         <option value="">No node assigned</option>

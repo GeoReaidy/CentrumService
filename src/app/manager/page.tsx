@@ -9,6 +9,7 @@ import { NotificationPreferencesCard } from "@/components/NotificationPreference
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, type CentrumRole } from "@/lib/supabase-role";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
+import { locationMapUrl } from "@/components/LocationCapture";
 
 type ManagerWorkspace = "overview" | "customers" | "support" | "requests" | "customization" | "billing" | "announcements" | "settings";
 
@@ -28,8 +29,9 @@ type Customer = {
 
 type Plan = { id: number; name: string; monthly_price_usd: number; is_active: boolean };
 type Ticket = { id: number; customer_id: string; subject: string; status: string; priority: string; created_at: string; updated_at: string };
-type ServiceRequest = { id: number; customer_id: string; request_type: string; details: string; status: string; admin_note: string | null; created_at: string; updated_at: string };
-type CustomizationRequest = { id: number; customer_id: string | null; full_name: string; email: string; phone: string | null; service_type: string; usage_types: string[]; budget_range: string | null; preferred_plan_name: string | null; notes: string | null; status: string; created_at: string };
+type ServiceRequest = { id: number; customer_id: string; request_type: string; details: string; status: string; admin_note: string | null; location_latitude: number | null; location_longitude: number | null; location_accuracy_m: number | null; location_captured_at: string | null; created_at: string; updated_at: string };
+type CustomizationRequest = { id: number; customer_id: string | null; full_name: string; email: string; phone: string | null; service_type: string; usage_types: string[]; budget_range: string | null; preferred_plan_name: string | null; notes: string | null; status: string; location_latitude: number | null; location_longitude: number | null; location_accuracy_m: number | null; location_captured_at: string | null; created_at: string };
+type CustomerLocation = { customer_id: string; latitude: number; longitude: number; accuracy_m: number | null; captured_at: string; updated_at: string };
 type Payment = { id: number; customer_id: string | null; amount_usd: number; paid_at: string; payment_method: string; reference: string | null; notes: string | null };
 type Announcement = { id: number; title: string; body: string; is_published: boolean; starts_at: string; ends_at: string | null; created_at: string };
 
@@ -60,6 +62,7 @@ export default function ManagerPage() {
   const [message, setMessage] = useState("");
 
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerLocations, setCustomerLocations] = useState<CustomerLocation[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
@@ -97,17 +100,18 @@ export default function ManagerPage() {
   const fetchAll = useCallback(async () => {
     if (!supabase) return;
 
-    const [customersResult, plansResult, ticketsResult, requestsResult, customizationsResult, paymentsResult, announcementsResult] = await Promise.all([
+    const [customersResult, locationsResult, plansResult, ticketsResult, requestsResult, customizationsResult, paymentsResult, announcementsResult] = await Promise.all([
       supabase.from("profiles").select("id,full_name,phone,address,plan_id,service_status,activation_date,renewal_date,renewal_auto_advance,renewal_interval_value,renewal_interval_unit").eq("role", "customer").order("full_name", { ascending: true }).limit(1000),
+      supabase.from("customer_locations").select("customer_id,latitude,longitude,accuracy_m,captured_at,updated_at"),
       supabase.from("plans").select("id,name,monthly_price_usd,is_active").eq("is_active", true).order("monthly_price_usd", { ascending: true }),
       supabase.from("tickets").select("id,customer_id,subject,status,priority,created_at,updated_at").order("updated_at", { ascending: false }).limit(250),
-      supabase.from("service_requests").select("id,customer_id,request_type,details,status,admin_note,created_at,updated_at").order("created_at", { ascending: false }).limit(250),
-      supabase.from("service_customization_requests").select("id,customer_id,full_name,email,phone,service_type,usage_types,budget_range,preferred_plan_name,notes,status,created_at").order("created_at", { ascending: false }).limit(250),
+      supabase.from("service_requests").select("id,customer_id,request_type,details,status,admin_note,location_latitude,location_longitude,location_accuracy_m,location_captured_at,created_at,updated_at").order("created_at", { ascending: false }).limit(250),
+      supabase.from("service_customization_requests").select("id,customer_id,full_name,email,phone,service_type,usage_types,budget_range,preferred_plan_name,notes,status,location_latitude,location_longitude,location_accuracy_m,location_captured_at,created_at").order("created_at", { ascending: false }).limit(250),
       supabase.from("payments").select("id,customer_id,amount_usd,paid_at,payment_method,reference,notes").order("paid_at", { ascending: false }).limit(250),
       supabase.from("announcements").select("id,title,body,is_published,starts_at,ends_at,created_at").order("created_at", { ascending: false }).limit(100),
     ]);
 
-    const firstError = customersResult.error || plansResult.error || ticketsResult.error || requestsResult.error || customizationsResult.error || paymentsResult.error || announcementsResult.error;
+    const firstError = customersResult.error || locationsResult.error || plansResult.error || ticketsResult.error || requestsResult.error || customizationsResult.error || paymentsResult.error || announcementsResult.error;
     if (firstError) {
       console.error("Manager console load failed", firstError);
       setError(toFriendlyErrorMessage(firstError, "Some manager data could not be loaded right now."));
@@ -116,6 +120,7 @@ export default function ManagerPage() {
     }
 
     setCustomers((customersResult.data as Customer[] | null) ?? []);
+    setCustomerLocations((locationsResult.data as CustomerLocation[] | null) ?? []);
     setPlans((plansResult.data as Plan[] | null) ?? []);
     setTickets((ticketsResult.data as Ticket[] | null) ?? []);
     setRequests((requestsResult.data as ServiceRequest[] | null) ?? []);
@@ -153,6 +158,7 @@ export default function ManagerPage() {
   }, [fetchAll, router, supabase]);
 
   const customerMap = useMemo(() => new Map(customers.map((customer) => [customer.id, customer])), [customers]);
+  const customerLocationMap = useMemo(() => new Map(customerLocations.map((location) => [location.customer_id, location])), [customerLocations]);
   const planMap = useMemo(() => new Map(plans.map((plan) => [plan.id, plan])), [plans]);
   const filteredCustomers = useMemo(() => {
     const query = customerSearch.trim().toLowerCase();
@@ -379,13 +385,17 @@ export default function ManagerPage() {
               <input className="admin-search" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search name, phone or address..." />
               <div className="customer-list admin-scroll-list manager-customer-list">
                 {filteredCustomers.map((customer) => {
-                  const draft = draftFor(customer); const open = selectedCustomerId === customer.id;
+                  const draft = draftFor(customer); const open = selectedCustomerId === customer.id; const savedCustomerLocation = customerLocationMap.get(customer.id) ?? null;
                   return <div className={`customer-row ${open ? "customer-row-open" : ""}`} key={customer.id}>
-                    <div className="customer-summary"><div><strong>{customer.full_name || "Unnamed customer"}</strong><span className="customer-id">{customer.id.slice(0, 8)}…</span></div><div className="customer-details"><span>{customer.phone || "No phone"}</span><span>{planMap.get(customer.plan_id ?? -1)?.name || "No active plan"}</span><span className={`status-pill status-${customer.service_status}`}>{formatStatus(customer.service_status)}</span><span>{customer.renewal_date ? `Renews ${customer.renewal_date}` : "No renewal date"}</span></div><button className="btn btn-secondary btn-compact" type="button" onClick={() => setSelectedCustomerId(open ? null : customer.id)}>{open ? "Close" : "Manage"}</button></div>
+                    <div className="customer-summary"><div><strong>{customer.full_name || "Unnamed customer"}</strong><span className="customer-id">{customer.id.slice(0, 8)}…</span></div><div className="customer-details"><span>{customer.phone || "No phone"}</span><span>{planMap.get(customer.plan_id ?? -1)?.name || "No active plan"}</span><span className={`status-pill status-${customer.service_status}`}>{formatStatus(customer.service_status)}</span><span>{customer.renewal_date ? `Renews ${customer.renewal_date}` : "No renewal date"}</span><span>{savedCustomerLocation ? "Location saved" : "No saved location"}</span></div><button className="btn btn-secondary btn-compact" type="button" onClick={() => setSelectedCustomerId(open ? null : customer.id)}>{open ? "Close" : "Manage"}</button></div>
                     {open ? <div className="customer-editor manager-customer-editor">
                       <label>Full name<input value={draft.full_name} onChange={(event) => updateCustomerDraft(customer, { full_name: event.target.value })} /></label>
                       <label>Phone<input value={draft.phone} onChange={(event) => updateCustomerDraft(customer, { phone: event.target.value })} /></label>
                       <label>Address<input value={draft.address} onChange={(event) => updateCustomerDraft(customer, { address: event.target.value })} /></label>
+                      <div className="customer-location-readonly">
+                        <span className="admin-overview-label">Saved Service Location</span>
+                        {savedCustomerLocation ? <><strong>{savedCustomerLocation.latitude.toFixed(6)}, {savedCustomerLocation.longitude.toFixed(6)}</strong><small>{savedCustomerLocation.accuracy_m ? `±${Math.round(savedCustomerLocation.accuracy_m)} m · ` : ""}Updated {formatDateTime(savedCustomerLocation.updated_at)}</small><a className="btn btn-secondary btn-compact" href={locationMapUrl({ latitude: savedCustomerLocation.latitude, longitude: savedCustomerLocation.longitude })} target="_blank" rel="noreferrer">Open in Maps ↗</a></> : <span className="field-note">This customer has not saved a service location yet.</span>}
+                      </div>
                       <label>Plan<select value={draft.plan_id} onChange={(event) => updateCustomerDraft(customer, { plan_id: event.target.value })}><option value="">No plan</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · ${plan.monthly_price_usd}/mo</option>)}</select></label>
                       <label>Service status<select value={draft.service_status} onChange={(event) => updateCustomerDraft(customer, { service_status: event.target.value })}><option value="active">Active</option><option value="pending_installation">Pending installation</option><option value="suspended">Suspended</option><option value="maintenance">Maintenance</option></select></label>
                       <label>Activation date<input type="date" value={draft.activation_date} onChange={(event) => updateCustomerDraft(customer, { activation_date: event.target.value })} /></label>
@@ -410,13 +420,19 @@ export default function ManagerPage() {
 
           {workspace === "requests" ? (
             <div className="manager-workspace"><div className="admin-workspace-heading"><div><div className="badge card-badge">Field & Service</div><h2>Service requests</h2><p className="page-intro">Handle technical visits, plan changes, relocations and equipment requests.</p></div></div>
-              <div className="manager-request-list">{requests.map((request) => <article className="card manager-request-card" key={request.id}><div className="manager-row-heading"><div><strong>#{request.id} · {formatStatus(request.request_type)}</strong><span>{customerMap.get(request.customer_id)?.full_name || "Customer"} · {formatDateTime(request.created_at)}</span></div><span className={`status-pill status-${request.status}`}>{formatStatus(request.status)}</span></div><p>{request.details}</p><label>Customer-visible note<input value={requestNotes[request.id] ?? ""} onChange={(event) => setRequestNotes((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Appointment time, follow-up note..." /></label><div className="section-actions"><select defaultValue={request.status} id={`request-status-${request.id}`}>{requestStatuses.map((status) => <option key={status} value={status}>{formatStatus(status)}</option>)}</select><button type="button" className="btn btn-primary btn-compact" disabled={savingRequestId === request.id} onClick={() => { const el = document.getElementById(`request-status-${request.id}`) as HTMLSelectElement | null; void updateServiceRequest(request, el?.value ?? request.status); }}>{savingRequestId === request.id ? "Saving..." : "Save Update"}</button></div></article>)}{!requests.length ? <p className="empty-state">No service requests yet.</p> : null}</div>
+              <div className="manager-request-list">{requests.map((request) => {
+                const saved = customerLocationMap.get(request.customer_id) ?? null;
+                const location = request.location_latitude !== null && request.location_longitude !== null
+                  ? { latitude: request.location_latitude, longitude: request.location_longitude }
+                  : saved ? { latitude: saved.latitude, longitude: saved.longitude } : null;
+                return <article className="card manager-request-card" key={request.id}><div className="manager-row-heading"><div><strong>#{request.id} · {formatStatus(request.request_type)}</strong><span>{customerMap.get(request.customer_id)?.full_name || "Customer"} · {formatDateTime(request.created_at)}</span></div><span className={`status-pill status-${request.status}`}>{formatStatus(request.status)}</span></div><p>{request.details}</p>{location ? <a className="btn btn-secondary btn-compact manager-location-link" href={locationMapUrl(location)} target="_blank" rel="noreferrer">{request.location_latitude !== null ? "Open attached visit location ↗" : "Open saved customer location ↗"}</a> : null}<label>Customer-visible note<input value={requestNotes[request.id] ?? ""} onChange={(event) => setRequestNotes((current) => ({ ...current, [request.id]: event.target.value }))} placeholder="Appointment time, follow-up note..." /></label><div className="section-actions"><select defaultValue={request.status} id={`request-status-${request.id}`}>{requestStatuses.map((status) => <option key={status} value={status}>{formatStatus(status)}</option>)}</select><button type="button" className="btn btn-primary btn-compact" disabled={savingRequestId === request.id} onClick={() => { const el = document.getElementById(`request-status-${request.id}`) as HTMLSelectElement | null; void updateServiceRequest(request, el?.value ?? request.status); }}>{savingRequestId === request.id ? "Saving..." : "Save Update"}</button></div></article>;
+              })}{!requests.length ? <p className="empty-state">No service requests yet.</p> : null}</div>
             </div>
           ) : null}
 
           {workspace === "customization" ? (
             <div className="manager-workspace"><div className="admin-workspace-heading"><div><div className="badge card-badge">Service Match</div><h2>Customization requests</h2><p className="page-intro">Follow up with customers asking Centrum to recommend the right service setup.</p></div></div>
-              <div className="manager-request-list">{customizations.map((request) => <article className="card manager-request-card" key={request.id}><div className="manager-row-heading"><div><strong>#{request.id} · {request.full_name}</strong><span><a href={`mailto:${request.email}`}>{request.email}</a>{request.phone ? ` · ${request.phone}` : ""}</span></div><span className={`status-pill status-${request.status}`}>{formatStatus(request.status)}</span></div><div className="manager-request-facts"><span><strong>Type</strong>{formatStatus(request.service_type)}</span><span><strong>Usage</strong>{request.usage_types.join(", ") || "—"}</span><span><strong>Budget</strong>{request.budget_range || "—"}</span><span><strong>Preferred</strong>{request.preferred_plan_name || "Recommend a plan"}</span></div>{request.notes ? <p>{request.notes}</p> : null}<div className="section-actions"><select value={request.status} onChange={(event) => void updateCustomization(request, event.target.value)} disabled={savingCustomizationId === request.id}>{customizationStatuses.map((status) => <option key={status} value={status}>{formatStatus(status)}</option>)}</select><a className="btn btn-primary btn-compact" href={`mailto:${request.email}?subject=${encodeURIComponent("Centrum Service recommendation")}`}>Email Customer</a></div></article>)}{!customizations.length ? <p className="empty-state">No customization requests yet.</p> : null}</div>
+              <div className="manager-request-list">{customizations.map((request) => <article className="card manager-request-card" key={request.id}><div className="manager-row-heading"><div><strong>#{request.id} · {request.full_name}</strong><span><a href={`mailto:${request.email}`}>{request.email}</a>{request.phone ? ` · ${request.phone}` : ""}</span></div><span className={`status-pill status-${request.status}`}>{formatStatus(request.status)}</span></div><div className="manager-request-facts"><span><strong>Type</strong>{formatStatus(request.service_type)}</span><span><strong>Usage</strong>{request.usage_types.join(", ") || "—"}</span><span><strong>Budget</strong>{request.budget_range || "—"}</span><span><strong>Preferred</strong>{request.preferred_plan_name || "Recommend a plan"}</span></div>{request.location_latitude !== null && request.location_longitude !== null ? <a className="btn btn-secondary btn-compact manager-location-link" href={locationMapUrl({ latitude: request.location_latitude, longitude: request.location_longitude })} target="_blank" rel="noreferrer">Open request location ↗</a> : request.customer_id && customerLocationMap.get(request.customer_id) ? <a className="btn btn-secondary btn-compact manager-location-link" href={locationMapUrl({ latitude: customerLocationMap.get(request.customer_id)!.latitude, longitude: customerLocationMap.get(request.customer_id)!.longitude })} target="_blank" rel="noreferrer">Open saved customer location ↗</a> : null}{request.notes ? <p>{request.notes}</p> : null}<div className="section-actions"><select value={request.status} onChange={(event) => void updateCustomization(request, event.target.value)} disabled={savingCustomizationId === request.id}>{customizationStatuses.map((status) => <option key={status} value={status}>{formatStatus(status)}</option>)}</select><a className="btn btn-primary btn-compact" href={`mailto:${request.email}?subject=${encodeURIComponent("Centrum Service recommendation")}`}>Email Customer</a></div></article>)}{!customizations.length ? <p className="empty-state">No customization requests yet.</p> : null}</div>
             </div>
           ) : null}
 

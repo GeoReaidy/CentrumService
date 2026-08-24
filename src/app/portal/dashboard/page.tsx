@@ -8,6 +8,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 import { deriveCustomerNodeState, type ProbeStatus } from "@/lib/network-monitoring";
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
+import { LocationCapture, locationMapUrl, type CapturedLocation } from "@/components/LocationCapture";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
@@ -97,7 +98,20 @@ type DbServiceRequest = {
   details: string;
   status: string;
   admin_note: string | null;
+  location_latitude: number | null;
+  location_longitude: number | null;
+  location_accuracy_m: number | null;
+  location_captured_at: string | null;
   created_at: string;
+};
+
+type DbCustomerLocation = {
+  customer_id: string;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  captured_at: string;
+  updated_at: string;
 };
 
 type DbCustomizationRequest = {
@@ -121,11 +135,17 @@ export default function PortalDashboardPage() {
   const [announcements, setAnnouncements] = useState<DbAnnouncement[]>([]);
   const [serviceRequests, setServiceRequests] = useState<DbServiceRequest[]>([]);
   const [customizationRequests, setCustomizationRequests] = useState<DbCustomizationRequest[]>([]);
+  const [savedLocation, setSavedLocation] = useState<CapturedLocation | null>(null);
+  const [locationDraft, setLocationDraft] = useState<CapturedLocation | null>(null);
+  const [locationSaving, setLocationSaving] = useState(false);
+  const [locationMessage, setLocationMessage] = useState("");
+  const [locationError, setLocationError] = useState("");
   const [globalMaintenance, setGlobalMaintenance] = useState(false);
   const [monitorHeartbeat, setMonitorHeartbeat] = useState<string | null>(null);
   const [dataError, setDataError] = useState("");
   const [requestType, setRequestType] = useState<keyof typeof requestTypeLabels>("technical_visit");
   const [requestDetails, setRequestDetails] = useState("");
+  const [requestLocation, setRequestLocation] = useState<CapturedLocation | null>(null);
   const [requestMessage, setRequestMessage] = useState("");
   const [requestError, setRequestError] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -140,11 +160,16 @@ export default function PortalDashboardPage() {
     if (!supabase) return;
     setDataError("");
 
-    const [profileResult, ticketsResult, paymentsResult, announcementsResult, requestsResult, customizationResult, networkResult] = await Promise.all([
+    const [profileResult, locationResult, ticketsResult, paymentsResult, announcementsResult, requestsResult, customizationResult, networkResult] = await Promise.all([
       supabase
         .from("profiles")
         .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date")
         .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("customer_locations")
+        .select("customer_id,latitude,longitude,accuracy_m,captured_at,updated_at")
+        .eq("customer_id", userId)
         .maybeSingle(),
       supabase
         .from("tickets")
@@ -165,7 +190,7 @@ export default function PortalDashboardPage() {
         .limit(5),
       supabase
         .from("service_requests")
-        .select("id,request_type,details,status,admin_note,created_at")
+        .select("id,request_type,details,status,admin_note,location_latitude,location_longitude,location_accuracy_m,location_captured_at,created_at")
         .eq("customer_id", userId)
         .order("created_at", { ascending: false })
         .limit(8),
@@ -178,14 +203,17 @@ export default function PortalDashboardPage() {
       supabase.rpc("get_my_network_status"),
     ]);
 
-    const firstError = profileResult.error || ticketsResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error || networkResult.error;
+    const firstError = profileResult.error || locationResult.error || ticketsResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error || networkResult.error;
     if (firstError) {
       console.error("Customer dashboard data load failed", firstError);
       setDataError(toFriendlyErrorMessage(firstError, "Some account information could not be loaded right now."));
     }
 
     const nextProfile = (profileResult.data as DbProfile | null) ?? null;
+    const nextLocation = toCapturedLocation((locationResult.data as DbCustomerLocation | null) ?? null);
     setProfile(nextProfile);
+    setSavedLocation(nextLocation);
+    setLocationDraft(nextLocation);
     setTickets((ticketsResult.data as DbTicket[] | null) ?? []);
     setPayments((paymentsResult.data as DbPayment[] | null) ?? []);
     setAnnouncements((announcementsResult.data as DbAnnouncement[] | null) ?? []);
@@ -379,6 +407,46 @@ export default function PortalDashboardPage() {
     return () => window.clearTimeout(timer);
   }, [activeWorkspace, announcements, customizationRequests, notificationDeepLink, serviceRequests]);
 
+  async function saveServiceLocation() {
+    if (!supabase || !account || !locationDraft || locationSaving) return;
+    setLocationSaving(true);
+    setLocationError("");
+    setLocationMessage("");
+    const payload = {
+      customer_id: account.id,
+      latitude: locationDraft.latitude,
+      longitude: locationDraft.longitude,
+      accuracy_m: locationDraft.accuracyM,
+      captured_at: locationDraft.capturedAt,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from("customer_locations").upsert(payload, { onConflict: "customer_id" });
+    if (error) {
+      setLocationError(toFriendlyErrorMessage(error, "Your service location could not be saved right now."));
+    } else {
+      setSavedLocation(locationDraft);
+      setLocationMessage("Your service location is saved. Centrum staff can now open it when handling your account.");
+    }
+    setLocationSaving(false);
+  }
+
+  async function clearServiceLocation() {
+    if (!supabase || !account || locationSaving) return;
+    if (!window.confirm("Remove your saved service location from Centrum?")) return;
+    setLocationSaving(true);
+    setLocationError("");
+    setLocationMessage("");
+    const { error } = await supabase.from("customer_locations").delete().eq("customer_id", account.id);
+    if (error) {
+      setLocationError(toFriendlyErrorMessage(error, "Your saved location could not be removed right now."));
+    } else {
+      setSavedLocation(null);
+      setLocationDraft(null);
+      setLocationMessage("Your saved service location was removed.");
+    }
+    setLocationSaving(false);
+  }
+
   async function submitServiceRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !account || !requestDetails.trim()) return;
@@ -386,10 +454,15 @@ export default function PortalDashboardPage() {
     setRequestError("");
     setRequestMessage("");
 
+    const submittedLocation = requestType === "technical_visit" ? requestLocation : null;
     const { error } = await supabase.from("service_requests").insert({
       customer_id: account.id,
       request_type: requestType,
       details: requestDetails.trim(),
+      location_latitude: submittedLocation?.latitude ?? null,
+      location_longitude: submittedLocation?.longitude ?? null,
+      location_accuracy_m: submittedLocation?.accuracyM ?? null,
+      location_captured_at: submittedLocation?.capturedAt ?? null,
       status: "submitted",
     });
 
@@ -398,6 +471,7 @@ export default function PortalDashboardPage() {
       setRequestError(toFriendlyErrorMessage(error, "We couldn't send your service request right now. Please try again."));
     } else {
       setRequestDetails("");
+      setRequestLocation(null);
       setRequestMessage("Request sent to Centrum. You can track its status below.");
       await fetchDashboard(account.id);
     }
@@ -587,7 +661,7 @@ export default function PortalDashboardPage() {
                   ) : <p className="empty-state">Centrum has not assigned a plan yet.</p>}
                   <div className="section-actions portal-inline-actions">
                     <ServiceCustomizationWizard
-                      defaults={{ fullName: displayName, email: account.email ?? "", phone: profile?.phone ?? "", address: profile?.address ?? "", preferredPlanId: profile?.plan_id ?? null }}
+                      defaults={{ fullName: displayName, email: account.email ?? "", phone: profile?.phone ?? "", address: profile?.address ?? "", preferredPlanId: profile?.plan_id ?? null, location: savedLocation }}
                       triggerLabel="Help Me Customize My Service"
                       triggerClassName="btn btn-primary"
                     />
@@ -609,6 +683,27 @@ export default function PortalDashboardPage() {
                 </article>
               </div>
 
+              <article className="card portal-location-card">
+                <div className="badge card-badge">Service Location</div>
+                <h2>Saved installation location</h2>
+                <p className="page-intro">Save the exact service point once so authorized Centrum managers and admins can open it when handling visits, coverage checks, or account support. You can replace or remove it at any time.</p>
+                <LocationCapture
+                  value={locationDraft}
+                  onChange={setLocationDraft}
+                  title="Your service location"
+                  description="Use your phone GPS for the best result, or enter coordinates manually."
+                  preset={savedLocation}
+                  presetLabel="Restore saved location"
+                />
+                {locationError ? <p className="form-alert form-alert-error">{locationError}</p> : null}
+                {locationMessage ? <p className="form-alert form-alert-success">{locationMessage}</p> : null}
+                <div className="section-actions portal-location-actions">
+                  <button type="button" className="btn btn-primary" disabled={!locationDraft || locationSaving} onClick={() => void saveServiceLocation()}>{locationSaving ? "Saving..." : "Save to My Account"}</button>
+                  {savedLocation ? <button type="button" className="btn btn-secondary" disabled={locationSaving} onClick={() => void clearServiceLocation()}>Remove Saved Location</button> : null}
+                </div>
+                <p className="field-note">Removing the saved account location does not erase location snapshots you previously chose to attach to technician or customization requests.</p>
+              </article>
+
               <div className="section-grid portal-two-col portal-service-request-grid">
                 <article className="card">
                   <div className="badge card-badge">Requests</div>
@@ -623,6 +718,16 @@ export default function PortalDashboardPage() {
                     <label>Details
                       <textarea rows={5} value={requestDetails} onChange={(event) => setRequestDetails(event.target.value)} placeholder="Tell us what you need and any timing or location details." required />
                     </label>
+                    {requestType === "technical_visit" ? (
+                      <LocationCapture
+                        value={requestLocation}
+                        onChange={setRequestLocation}
+                        title="Technician visit location"
+                        description="Optional, but useful when the technician needs the exact building or installation point."
+                        preset={savedLocation}
+                        presetLabel="Use my saved service location"
+                      />
+                    ) : null}
                     {requestError ? <p className="form-alert form-alert-error">{requestError}</p> : null}
                     {requestMessage ? <p className="form-alert form-alert-success">{requestMessage}</p> : null}
                     <button className="btn btn-primary" type="submit" disabled={isSubmittingRequest}>{isSubmittingRequest ? "Sending..." : "Send Request"}</button>
@@ -644,6 +749,9 @@ export default function PortalDashboardPage() {
                           <span className={`status-pill status-${request.status}`}>{requestStatusLabels[request.status] ?? formatStatus(request.status)}</span>
                         </div>
                         <p>{request.details}</p>
+                        {request.location_latitude !== null && request.location_longitude !== null ? (
+                          <a className="text-link location-map-link" href={locationMapUrl({ latitude: request.location_latitude, longitude: request.location_longitude })} target="_blank" rel="noreferrer">Open attached visit location ↗</a>
+                        ) : null}
                         {request.admin_note ? <p className="field-note"><strong>Centrum:</strong> {request.admin_note}</p> : null}
                         <span>{formatDateTime(request.created_at)}</span>
                       </div>
@@ -832,6 +940,16 @@ export default function PortalDashboardPage() {
       </div>
     </section>
   );
+}
+
+function toCapturedLocation(row: DbCustomerLocation | null): CapturedLocation | null {
+  if (!row || !Number.isFinite(row.latitude) || !Number.isFinite(row.longitude)) return null;
+  return {
+    latitude: row.latitude,
+    longitude: row.longitude,
+    accuracyM: row.accuracy_m,
+    capturedAt: row.captured_at,
+  };
 }
 
 function readFullName(account: User) {
