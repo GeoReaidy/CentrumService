@@ -8,7 +8,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 import { deriveCustomerNodeState, type ProbeStatus } from "@/lib/network-monitoring";
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
-import { LocationCapture, locationMapUrl, type CapturedLocation } from "@/components/LocationCapture";
+import { LocationCapture, type CapturedLocation } from "@/components/LocationCapture";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
@@ -407,25 +407,28 @@ export default function PortalDashboardPage() {
     return () => window.clearTimeout(timer);
   }, [activeWorkspace, announcements, customizationRequests, notificationDeepLink, serviceRequests]);
 
-  async function saveServiceLocation() {
-    if (!supabase || !account || !locationDraft || locationSaving) return;
+  async function saveServiceLocation(nextLocation?: CapturedLocation) {
+    const targetLocation = nextLocation ?? locationDraft;
+    if (!supabase || !account || !targetLocation || locationSaving) return;
     setLocationSaving(true);
     setLocationError("");
     setLocationMessage("");
     const payload = {
       customer_id: account.id,
-      latitude: locationDraft.latitude,
-      longitude: locationDraft.longitude,
-      accuracy_m: locationDraft.accuracyM,
-      captured_at: locationDraft.capturedAt,
+      latitude: targetLocation.latitude,
+      longitude: targetLocation.longitude,
+      accuracy_m: targetLocation.accuracyM,
+      captured_at: targetLocation.capturedAt,
       updated_at: new Date().toISOString(),
     };
     const { error } = await supabase.from("customer_locations").upsert(payload, { onConflict: "customer_id" });
     if (error) {
+      setLocationDraft(savedLocation);
       setLocationError(toFriendlyErrorMessage(error, "Your service location could not be saved right now."));
     } else {
-      setSavedLocation(locationDraft);
-      setLocationMessage("Your service location is saved. Centrum staff can now open it when handling your account.");
+      setSavedLocation(targetLocation);
+      setLocationDraft(targetLocation);
+      setLocationMessage("Location uploaded successfully. Centrum staff can use it when helping with your service.");
     }
     setLocationSaving(false);
   }
@@ -686,22 +689,22 @@ export default function PortalDashboardPage() {
               <article className="card portal-location-card">
                 <div className="badge card-badge">Service Location</div>
                 <h2>Saved installation location</h2>
-                <p className="page-intro">Save the exact service point once so authorized Centrum managers and admins can open it when handling visits, coverage checks, or account support. You can replace or remove it at any time.</p>
+                <p className="page-intro">Upload your home or service point once. Centrum managers and admins can then use it for technician visits, coverage checks, and account support.</p>
                 <LocationCapture
                   value={locationDraft}
-                  onChange={setLocationDraft}
+                  onChange={(nextLocation) => {
+                    if (nextLocation) void saveServiceLocation(nextLocation);
+                  }}
                   title="Your service location"
-                  description="Use your phone GPS for the best result, or enter coordinates manually."
-                  preset={savedLocation}
-                  presetLabel="Restore saved location"
+                  description="Tap Upload location, choose the correct point on Google Maps, then send it."
+                  disabled={locationSaving}
+                  allowClear={false}
                 />
+                {locationSaving ? <p className="field-note">Uploading your location...</p> : null}
                 {locationError ? <p className="form-alert form-alert-error">{locationError}</p> : null}
                 {locationMessage ? <p className="form-alert form-alert-success">{locationMessage}</p> : null}
-                <div className="section-actions portal-location-actions">
-                  <button type="button" className="btn btn-primary" disabled={!locationDraft || locationSaving} onClick={() => void saveServiceLocation()}>{locationSaving ? "Saving..." : "Save to My Account"}</button>
-                  {savedLocation ? <button type="button" className="btn btn-secondary" disabled={locationSaving} onClick={() => void clearServiceLocation()}>Remove Saved Location</button> : null}
-                </div>
-                <p className="field-note">Removing the saved account location does not erase location snapshots you previously chose to attach to technician or customization requests.</p>
+                {savedLocation ? <div className="section-actions portal-location-actions"><button type="button" className="btn btn-secondary" disabled={locationSaving} onClick={() => void clearServiceLocation()}>Remove saved location</button></div> : null}
+                <p className="field-note">Removing your saved account location does not erase a location you previously attached to an older technician or customization request.</p>
               </article>
 
               <div className="section-grid portal-two-col portal-service-request-grid">
@@ -750,7 +753,7 @@ export default function PortalDashboardPage() {
                         </div>
                         <p>{request.details}</p>
                         {request.location_latitude !== null && request.location_longitude !== null ? (
-                          <a className="text-link location-map-link" href={locationMapUrl({ latitude: request.location_latitude, longitude: request.location_longitude })} target="_blank" rel="noreferrer">Open attached visit location ↗</a>
+                          <span className="field-note">Location attached to this request ✓</span>
                         ) : null}
                         {request.admin_note ? <p className="field-note"><strong>Centrum:</strong> {request.admin_note}</p> : null}
                         <span>{formatDateTime(request.created_at)}</span>

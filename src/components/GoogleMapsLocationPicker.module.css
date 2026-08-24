@@ -1,0 +1,323 @@
+.captureShell {
+    overflow: visible;
+}
+
+.emptyState,
+.readyState {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.82rem;
+    border: 1px solid rgba(91, 132, 226, 0.26);
+    border-radius: 12px;
+    background: rgba(6, 14, 30, 0.54);
+}
+
+.readyState {
+    border-color: rgba(66, 224, 162, 0.28);
+    background: rgba(66, 224, 162, 0.055);
+}
+
+.stateIcon {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(102, 144, 255, 0.34);
+    border-radius: 50%;
+    background: rgba(47, 108, 255, 0.12);
+    color: #c7d7ff;
+    font-size: 1.05rem;
+    font-weight: 900;
+}
+
+.readyState .stateIcon {
+    border-color: rgba(66, 224, 162, 0.34);
+    background: rgba(66, 224, 162, 0.1);
+    color: #9ff4cd;
+}
+
+.emptyState > div,
+.readyState > div {
+    min-width: 0;
+    display: grid;
+    gap: 0.15rem;
+}
+
+.emptyState strong,
+.readyState strong {
+    font-size: 0.9rem;
+}
+
+.emptyState small,
+.readyState small {
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.uploadButton {
+    min-height: 46px !important;
+}
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(2, 6, 16, 0.82);
+    backdrop-filter: blur(12px);
+}
+
+.dialog {
+    width: min(720px, 100%);
+    max-height: min(860px, calc(100dvh - 2rem));
+    display: grid;
+    grid-template-rows: auto auto minmax(320px, 1fr) auto auto;
+    overflow: hidden;
+    border: 1px solid rgba(88, 133, 255, 0.46);
+    border-radius: 20px;
+    background: linear-gradient(150deg, rgba(9, 18, 39, 0.995), rgba(5, 11, 24, 0.995));
+    box-shadow: 0 32px 100px rgba(0, 0, 0, 0.62);
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1rem 0.8rem;
+}
+
+.header > div {
+    min-width: 0;
+}
+
+.header h2 {
+    margin: 0.35rem 0 0.25rem;
+    font-size: clamp(1.3rem, 4vw, 1.7rem);
+}
+
+.header p {
+    max-width: 58ch;
+    color: var(--muted);
+    line-height: 1.45;
+    font-size: 0.88rem;
+}
+
+.closeButton {
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(112, 145, 221, 0.36);
+    border-radius: 50%;
+    background: rgba(8, 17, 34, 0.82);
+    color: var(--text);
+    font: inherit;
+    font-size: 1.4rem;
+    cursor: pointer;
+}
+
+.searchArea {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    padding: 0 1rem 0.8rem;
+}
+
+.searchHost {
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
+.searchHost :global(gmp-place-autocomplete) {
+    width: 100%;
+    min-width: 0;
+}
+
+.myLocationButton {
+    min-height: 44px !important;
+    white-space: nowrap;
+}
+
+.mapFrame {
+    position: relative;
+    min-height: 320px;
+    overflow: hidden;
+    border-top: 1px solid rgba(90, 127, 209, 0.22);
+    border-bottom: 1px solid rgba(90, 127, 209, 0.22);
+    background: #111827;
+}
+
+.map {
+    position: absolute;
+    inset: 0;
+}
+
+.centerPin {
+    position: absolute;
+    z-index: 5;
+    left: 50%;
+    top: 50%;
+    width: 34px;
+    height: 46px;
+    transform: translate(-50%, -100%);
+    pointer-events: none;
+    filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.38));
+}
+
+.pinHead {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 30px;
+    height: 30px;
+    border: 3px solid #fff;
+    border-radius: 50% 50% 50% 0;
+    background: #2f6cff;
+    transform: rotate(-45deg);
+}
+
+.pinHead::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+    transform: translate(-50%, -50%);
+}
+
+.pinPoint {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 8px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    transform: translateX(-50%);
+}
+
+.mapState {
+    position: absolute;
+    z-index: 8;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(6, 13, 28, 0.88);
+    color: var(--muted);
+    text-align: center;
+}
+
+.mapError {
+    align-content: center;
+    gap: 0.35rem;
+}
+
+.mapError strong {
+    color: var(--text);
+}
+
+.helperRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.8rem 1rem;
+    background: rgba(7, 15, 31, 0.52);
+}
+
+.helperIcon {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(47, 108, 255, 0.12);
+    color: #b9ccff;
+}
+
+.helperRow p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.45;
+    font-size: 0.84rem;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+}
+
+.actions :global(.btn) {
+    min-height: 46px;
+}
+
+@media (max-width: 640px) {
+    .backdrop {
+        align-items: stretch;
+        padding: 0;
+    }
+
+    .dialog {
+        width: 100%;
+        height: 100dvh;
+        max-height: none;
+        grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .header {
+        padding: calc(0.8rem + env(safe-area-inset-top)) 0.8rem 0.65rem;
+    }
+
+    .header p {
+        font-size: 0.82rem;
+    }
+
+    .searchArea {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        padding: 0 0.8rem 0.65rem;
+    }
+
+    .myLocationButton {
+        width: 100%;
+    }
+
+    .mapFrame {
+        min-height: 0;
+    }
+
+    .helperRow {
+        padding: 0.7rem 0.8rem;
+    }
+
+    .actions {
+        display: grid;
+        grid-template-columns: 0.75fr 1.25fr;
+        padding: 0.7rem 0.8rem calc(0.7rem + env(safe-area-inset-bottom));
+    }
+
+    .actions :global(.btn) {
+        width: 100%;
+    }
+
+    .emptyState,
+    .readyState {
+        padding: 0.72rem;
+    }
+}

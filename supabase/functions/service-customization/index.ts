@@ -25,7 +25,15 @@ type RequestBody = {
 const MAX_BODY_BYTES = 32_000;
 const RATE_LIMIT = 4;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
-const DEFAULT_ORIGINS = ["https://centrumservice.net", "https://www.centrumservice.net"];
+
+// Production + known local development origins.
+// Keep this exact-origin allowlist narrow; do not replace it with "*".
+const DEFAULT_ORIGINS = [
+  "https://centrumservice.net",
+  "https://www.centrumservice.net",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
 
 function readSecretKey() {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -43,7 +51,13 @@ function readSecretKey() {
 function allowedOrigins() {
   const configured = Deno.env.get("CENTRUM_ALLOWED_ORIGINS");
   if (!configured) return DEFAULT_ORIGINS;
-  return configured.split(",").map((value) => value.trim()).filter(Boolean);
+
+  // Always retain the safe defaults so local testing does not break when
+  // a production-only CENTRUM_ALLOWED_ORIGINS value is configured.
+  return Array.from(new Set([
+    ...DEFAULT_ORIGINS,
+    ...configured.split(",").map((value) => value.trim()).filter(Boolean),
+  ]));
 }
 
 function originHeaders(request: Request) {
