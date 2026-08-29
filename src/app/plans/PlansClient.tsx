@@ -6,6 +6,8 @@ import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWiz
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import type { PublicPlan } from "@/lib/public-catalog-server";
+import { useLanguage } from "@/components/LanguageProvider";
+import { localizedField } from "@/lib/i18n";
 
 type PlansClientProps = {
   initialPlans: PublicPlan[];
@@ -17,6 +19,7 @@ export function PlansClient({
   initialLoadFailed,
 }: PlansClientProps) {
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
   const [plans, setPlans] = useState<PublicPlan[]>(initialPlans);
   const [isLoading, setIsLoading] = useState(
     () => initialPlans.length === 0 && initialLoadFailed,
@@ -44,7 +47,7 @@ export function PlansClient({
         const { data, error } = await supabase
           .from("plans")
           .select(
-            "id,name,speed_down_mbps,speed_up_mbps,monthly_quota_gb,monthly_price_usd,is_active",
+            "id,name,name_fr,name_ar,description,description_fr,description_ar,speed_down_mbps,speed_up_mbps,monthly_quota_gb,monthly_price_usd,is_active",
           )
           .eq("is_active", true)
           .order("monthly_price_usd", { ascending: true });
@@ -135,7 +138,11 @@ export function PlansClient({
             <ServiceCustomizationWizard
               triggerLabel="Help Me Customize My Plan"
               triggerClassName="btn btn-primary plans-customization-button"
-              plans={plans}
+              plans={plans.map((plan) => ({
+                ...plan,
+                name: localizedField(plan as unknown as Record<string, unknown>, "name", locale),
+                description: localizedField(plan as unknown as Record<string, unknown>, "description", locale) || null,
+              }))}
             />
           </div>
 
@@ -143,7 +150,8 @@ export function PlansClient({
             {plans.map((plan) => (
               <article className="card" key={plan.id}>
                 <div className="badge card-badge">Service Plan</div>
-                <h2>{plan.name}</h2>
+                <h2>{localizedField(plan as unknown as Record<string, unknown>, "name", locale)}</h2>
+                {localizedField(plan as unknown as Record<string, unknown>, "description", locale) ? <p className="plan-description">{localizedField(plan as unknown as Record<string, unknown>, "description", locale)}</p> : null}
                 <div
                   className="tech-stats"
                   style={{

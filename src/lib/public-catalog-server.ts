@@ -6,9 +6,14 @@ type PublicFetchResult<T> = {
 export type PublicPlan = {
   id: number;
   name: string;
-  speed_down_mbps: number;
-  speed_up_mbps: number;
-  monthly_quota_gb: number;
+  name_fr: string | null;
+  name_ar: string | null;
+  description: string | null;
+  description_fr: string | null;
+  description_ar: string | null;
+  speed_down_mbps: number | null;
+  speed_up_mbps: number | null;
+  monthly_quota_gb: number | null;
   monthly_price_usd: number;
   is_active: boolean;
 };
@@ -16,7 +21,11 @@ export type PublicPlan = {
 export type PublicCoverageRegion = {
   id: number;
   name: string;
+  name_fr: string | null;
+  name_ar: string | null;
   description: string | null;
+  description_fr: string | null;
+  description_ar: string | null;
   sort_order: number;
 };
 
@@ -64,7 +73,7 @@ async function fetchPublicRows<T>(
 export function getPublicPlans() {
   const query = new URLSearchParams({
     select:
-      "id,name,speed_down_mbps,speed_up_mbps,monthly_quota_gb,monthly_price_usd,is_active",
+      "id,name,name_fr,name_ar,description,description_fr,description_ar,speed_down_mbps,speed_up_mbps,monthly_quota_gb,monthly_price_usd,is_active",
     is_active: "eq.true",
     order: "monthly_price_usd.asc",
   });
@@ -74,7 +83,7 @@ export function getPublicPlans() {
 
 export function getPublicCoverageRegions() {
   const query = new URLSearchParams({
-    select: "id,name,description,sort_order",
+    select: "id,name,name_fr,name_ar,description,description_fr,description_ar,sort_order",
     is_active: "eq.true",
     order: "sort_order.asc,name.asc",
   });

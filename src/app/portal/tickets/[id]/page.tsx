@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveUserRole, roleHome } from "@/lib/supabase-role";
+import { resolveIsAdmin } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
+import { useLanguage } from "@/components/LanguageProvider";
+import { localizedDateLocale } from "@/lib/i18n";
 import type { RealtimePostgresChangesPayload, User } from "@supabase/supabase-js";
 
 type TicketUpdate = {
@@ -37,12 +39,12 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
   const id = params.id;
   const ticketId = Number(id);
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
   const [ticket, setTicket] = useState<TicketData | null>(null);
   const [updates, setUpdates] = useState<TicketUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [staffHome, setStaffHome] = useState("/portal/dashboard");
   const [authReady, setAuthReady] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -104,12 +106,10 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
       }
 
       setUser(data.user);
-      const role = await resolveUserRole(supabase!, data.user);
+      const admin = await resolveIsAdmin(supabase!, data.user);
       if (cancelled) return;
 
-      const staff = role === "admin" || role === "manager";
-      setIsAdmin(staff);
-      setStaffHome(staff ? roleHome(role) : "/portal/dashboard");
+      setIsAdmin(admin);
       setAuthReady(true);
       await fetchTicketDetails();
     }
@@ -284,7 +284,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
           <div className="badge card-badge">Update Feed</div>
           <div className="update-feed" style={{ marginTop: "1rem", maxHeight: "400px", overflowY: "auto" }}>
             <div className="update-bubble update-bubble-customer">
-              <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>Reported on {new Date(ticket.created_at).toLocaleString()}</p>
+              <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>Reported on {new Date(ticket.created_at).toLocaleString(localizedDateLocale(locale))}</p>
               <p style={{ marginTop: "0.5rem" }}>{ticket.description}</p>
             </div>
             {updates.map((update) => (
@@ -294,7 +294,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
                   <span className="badge" style={{ fontSize: "0.6rem" }}>{update.is_admin ? "Support Engineer" : "Customer"}</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{new Date(update.created_at).toLocaleString()}</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{new Date(update.created_at).toLocaleString(localizedDateLocale(locale))}</span>
                 </div>
                 <p>{update.message}</p>
               </div>
@@ -329,7 +329,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
                 Mark as Resolved
               </button>
             )}
-            <Link href={isAdmin ? staffHome : "/portal/dashboard"} className="btn btn-secondary">
+            <Link href={isAdmin ? "/admin" : "/portal/dashboard"} className="btn btn-secondary">
               Back to Dashboard
             </Link>
           </div>

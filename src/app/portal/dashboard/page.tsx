@@ -11,6 +11,9 @@ import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWiz
 import { LocationCapture, type CapturedLocation } from "@/components/LocationCapture";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
+import { useLanguage } from "@/components/LanguageProvider";
+import { localizedDateLocale, localizedField, type Locale } from "@/lib/i18n";
+import { translateUiText } from "@/lib/ui-translations";
 
 const statusLabelMap = {
   open: "Open",
@@ -37,6 +40,7 @@ const requestStatusLabels: Record<string, string> = {
 };
 
 type PortalWorkspace = "overview" | "service" | "billing" | "support" | "account";
+type PortalMode = "simple" | "advanced";
 
 type DbTicket = {
   id: number;
@@ -59,10 +63,15 @@ type DbProfile = {
 type DbPlan = {
   id: number;
   name: string;
-  speed_down_mbps: number;
-  speed_up_mbps: number;
+  name_fr: string | null;
+  name_ar: string | null;
+  description: string | null;
+  description_fr: string | null;
+  description_ar: string | null;
+  speed_down_mbps: number | null;
+  speed_up_mbps: number | null;
   monthly_price_usd: number;
-  monthly_quota_gb: number;
+  monthly_quota_gb: number | null;
 };
 
 type DbNode = {
@@ -88,7 +97,11 @@ type DbPayment = {
 type DbAnnouncement = {
   id: number;
   title: string;
+  title_fr: string | null;
+  title_ar: string | null;
   body: string;
+  body_fr: string | null;
+  body_ar: string | null;
   created_at: string;
 };
 
@@ -124,6 +137,7 @@ type DbCustomizationRequest = {
 export default function PortalDashboardPage() {
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
   const [account, setAccount] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(() => Boolean(supabase));
   const [isAdmin, setIsAdmin] = useState(false);
@@ -150,6 +164,7 @@ export default function PortalDashboardPage() {
   const [requestError, setRequestError] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<PortalWorkspace>("overview");
+  const [portalMode, setPortalMode] = useState<PortalMode>("simple");
   const [notificationDeepLink, setNotificationDeepLink] = useState({
     highlightRequest: "",
     highlightCustomization: "",
@@ -160,7 +175,7 @@ export default function PortalDashboardPage() {
     if (!supabase) return;
     setDataError("");
 
-    const [profileResult, locationResult, ticketsResult, paymentsResult, announcementsResult, requestsResult, customizationResult, networkResult] = await Promise.all([
+    const [profileResult, locationResult, ticketsResult, paymentsResult, announcementsResult, requestsResult, customizationResult, preferenceResult, networkResult] = await Promise.all([
       supabase
         .from("profiles")
         .select("id,full_name,phone,address,node_id,plan_id,service_status,activation_date,renewal_date")
@@ -185,7 +200,7 @@ export default function PortalDashboardPage() {
         .limit(5),
       supabase
         .from("announcements")
-        .select("id,title,body,created_at")
+        .select("id,title,title_fr,title_ar,body,body_fr,body_ar,created_at")
         .order("created_at", { ascending: false })
         .limit(5),
       supabase
@@ -200,10 +215,15 @@ export default function PortalDashboardPage() {
         .eq("customer_id", userId)
         .order("created_at", { ascending: false })
         .limit(5),
+      supabase
+        .from("customer_portal_preferences")
+        .select("portal_mode")
+        .eq("customer_id", userId)
+        .maybeSingle(),
       supabase.rpc("get_my_network_status"),
     ]);
 
-    const firstError = profileResult.error || locationResult.error || ticketsResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error || networkResult.error;
+    const firstError = profileResult.error || locationResult.error || ticketsResult.error || paymentsResult.error || announcementsResult.error || requestsResult.error || customizationResult.error || preferenceResult.error || networkResult.error;
     if (firstError) {
       console.error("Customer dashboard data load failed", firstError);
       setDataError(toFriendlyErrorMessage(firstError, "Some account information could not be loaded right now."));
@@ -219,6 +239,8 @@ export default function PortalDashboardPage() {
     setAnnouncements((announcementsResult.data as DbAnnouncement[] | null) ?? []);
     setServiceRequests((requestsResult.data as DbServiceRequest[] | null) ?? []);
     setCustomizationRequests((customizationResult.data as DbCustomizationRequest[] | null) ?? []);
+    const savedPortalMode = (preferenceResult.data as { portal_mode?: string } | null)?.portal_mode;
+    setPortalMode(savedPortalMode === "advanced" ? "advanced" : "simple");
     const networkRow = (Array.isArray(networkResult.data) ? networkResult.data[0] : null) as ({
       node_id: string | null; node_name: string | null; monitor_enabled: boolean; probe_status: ProbeStatus; latency_ms: number | null;
       last_checked_at: string | null; last_seen_at: string | null; maintenance_mode: boolean; maintenance_message: string | null;
@@ -230,7 +252,7 @@ export default function PortalDashboardPage() {
     if (nextProfile?.plan_id) {
       const { data, error: planError } = await supabase
         .from("plans")
-        .select("id,name,speed_down_mbps,speed_up_mbps,monthly_price_usd,monthly_quota_gb")
+        .select("id,name,name_fr,name_ar,description,description_fr,description_ar,speed_down_mbps,speed_up_mbps,monthly_price_usd,monthly_quota_gb")
         .eq("id", nextProfile.plan_id)
         .maybeSingle();
       if (planError) {
@@ -435,7 +457,7 @@ export default function PortalDashboardPage() {
 
   async function clearServiceLocation() {
     if (!supabase || !account || locationSaving) return;
-    if (!window.confirm("Remove your saved service location from Centrum?")) return;
+    if (!window.confirm(translateUiText("Remove your saved service location from Centrum?", locale))) return;
     setLocationSaving(true);
     setLocationError("");
     setLocationMessage("");
@@ -497,6 +519,252 @@ export default function PortalDashboardPage() {
   const serviceStatus = profile?.service_status ?? "active";
   const latestPayment = payments[0] ?? null;
   const customerNodeState = deriveCustomerNodeState(node, globalMaintenance, monitorHeartbeat);
+  const latestTicket = tickets[0] ?? null;
+  const latestServiceRequest = serviceRequests[0] ?? null;
+  const recentAnnouncements = announcements.slice(0, 3);
+
+  function scrollToSimpleSection(id: string) {
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
+
+  if (portalMode === "simple") {
+    return (
+      <section className="animate-fade-in portal-dashboard portal-simple-page">
+        <div className="portal-console-header portal-simple-header">
+          <div>
+            <div className={`badge badge-pulse page-badge customer-network-badge customer-network-${customerNodeState.key}`}>
+              Service: {customerNodeState.label}
+            </div>
+            <h1>Welcome, {displayName}</h1>
+            <p className="page-intro">Everything you normally need from Centrum is right here on one page.</p>
+          </div>
+          <div className="section-actions portal-console-header-actions">
+            <Link href="/portal/account" className="btn btn-primary">Account Settings</Link>
+            <button type="button" className="btn btn-secondary" onClick={handleSignOut}>Sign out</button>
+          </div>
+        </div>
+
+        {dataError ? (
+          <AsyncState
+            kind="error"
+            eyebrow="Partial Data"
+            title="Some account information couldn't load"
+            message={dataError}
+            onRetry={() => account && void fetchDashboard(account.id)}
+            retryLabel="Retry"
+          />
+        ) : null}
+
+        <div className="portal-simple-stack">
+          <section className="portal-simple-summary-grid" aria-label="Account summary">
+            <article className="card portal-simple-summary-card">
+              <div className="badge card-badge">Your Plan</div>
+              <h2>{plan ? localizedField(plan as unknown as Record<string, unknown>, "name", locale) : "No plan assigned"}</h2>
+              {plan && localizedField(plan as unknown as Record<string, unknown>, "description", locale) ? <p className="plan-description">{localizedField(plan as unknown as Record<string, unknown>, "description", locale)}</p> : null}
+              {plan ? (
+                <div className="portal-simple-plan-facts">
+                  {plan.speed_down_mbps !== null ? <span><strong>{plan.speed_down_mbps}</strong> Mbps down</span> : null}
+                  {plan.speed_up_mbps !== null ? <span><strong>{plan.speed_up_mbps}</strong> Mbps up</span> : null}
+                  {plan.monthly_quota_gb !== null ? <span><strong>{plan.monthly_quota_gb}</strong> GB quota</span> : null}
+                  <span><strong>${plan.monthly_price_usd}</strong>/month</span>
+                </div>
+              ) : <p className="empty-state">Centrum has not assigned a plan yet.</p>}
+              <div className="section-actions portal-inline-actions">
+                <ServiceCustomizationWizard
+                  defaults={{ fullName: displayName, email: account.email ?? "", phone: profile?.phone ?? "", address: profile?.address ?? "", preferredPlanId: profile?.plan_id ?? null, location: savedLocation }}
+                  triggerLabel="Customize My Service"
+                  triggerClassName="btn btn-secondary"
+                />
+              </div>
+            </article>
+
+            <article className="card portal-simple-summary-card">
+              <div className="badge card-badge">Service</div>
+              <h2>{customerNodeState.label}</h2>
+              <span className={`status-pill customer-node-status customer-node-${customerNodeState.key}`}>{customerNodeState.label}</span>
+              <p className="field-note customer-node-message">{customerNodeState.message}</p>
+              <div className="dashboard-detail-list">
+                <span><strong>Account:</strong> {formatStatus(serviceStatus)}</span>
+                <span><strong>Address:</strong> {profile?.address ?? "Not provided"}</span>
+              </div>
+            </article>
+
+            <article className="card portal-simple-summary-card">
+              <div className="badge card-badge">Renewal</div>
+              <h2>{formatDate(profile?.renewal_date, locale)}</h2>
+              <span className={`status-pill ${renewalState.className}`}>{renewalState.label}</span>
+              {plan ? <p className="field-note">Current plan: ${plan.monthly_price_usd}/month</p> : null}
+              {latestPayment ? (
+                <p className="field-note">Last payment: ${Number(latestPayment.amount_usd).toFixed(2)} · {formatDateTime(latestPayment.paid_at, locale)}</p>
+              ) : <p className="field-note">No payment has been recorded yet.</p>}
+            </article>
+          </section>
+
+          <article className="card portal-simple-actions-card">
+            <div>
+              <div className="badge card-badge">Quick Actions</div>
+              <h2>What do you need?</h2>
+              <p className="page-intro">The common actions are kept here so you do not need to dig through menus.</p>
+            </div>
+            <div className="portal-simple-action-grid">
+              <Link href="/portal/tickets/new" className="btn btn-primary">Report a Problem</Link>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setRequestType("technical_visit");
+                  scrollToSimpleSection("simple-service-request");
+                }}
+              >
+                Request Technician
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => scrollToSimpleSection("simple-location")}>Update Location</button>
+              <Link href="/portal/live-chat" className="btn btn-secondary">Contact Support</Link>
+            </div>
+          </article>
+
+          <section className="portal-simple-two-col">
+            <article className="card">
+              <div className="section-heading-row">
+                <div>
+                  <div className="badge card-badge">Support</div>
+                  <h2>Latest support</h2>
+                </div>
+                {latestTicket ? <span className={`status-pill status-${latestTicket.status}`}>{statusLabelMap[latestTicket.status] ?? latestTicket.status}</span> : null}
+              </div>
+              {latestTicket ? (
+                <Link href={`/portal/tickets/${latestTicket.id}`} className="portal-simple-primary-row">
+                  <span><strong>#{latestTicket.id}</strong> · {latestTicket.subject}</span>
+                  <span>Open →</span>
+                </Link>
+              ) : <p className="empty-state">You have no active support tickets.</p>}
+              <div className="section-actions">
+                <Link href="/portal/tickets/new" className="btn btn-secondary">New Ticket</Link>
+                <Link href="/portal/live-chat" className="btn btn-secondary">Live Chat</Link>
+              </div>
+            </article>
+
+            <article className="card">
+              <div className="section-heading-row">
+                <div>
+                  <div className="badge card-badge">Requests</div>
+                  <h2>Latest service request</h2>
+                </div>
+                {latestServiceRequest ? <span className={`status-pill status-${latestServiceRequest.status}`}>{requestStatusLabels[latestServiceRequest.status] ?? formatStatus(latestServiceRequest.status)}</span> : null}
+              </div>
+              {latestServiceRequest ? (
+                <div
+                  className={`portal-feed-item portal-simple-request-preview ${notificationDeepLink.highlightRequest === String(latestServiceRequest.id) ? "notification-highlight" : ""}`}
+                  id={`service-request-${latestServiceRequest.id}`}
+                >
+                  <strong>#{latestServiceRequest.id} · {requestTypeLabels[latestServiceRequest.request_type] ?? formatStatus(latestServiceRequest.request_type)}</strong>
+                  <p>{latestServiceRequest.details}</p>
+                  {latestServiceRequest.admin_note ? <p className="field-note"><strong>Centrum:</strong> {latestServiceRequest.admin_note}</p> : null}
+                  <span>{formatDateTime(latestServiceRequest.created_at, locale)}</span>
+                </div>
+              ) : <p className="empty-state">No service requests yet.</p>}
+              <button type="button" className="btn btn-secondary" onClick={() => scrollToSimpleSection("simple-service-request")}>New Service Request</button>
+            </article>
+          </section>
+
+          <article className="card portal-simple-request-card" id="simple-service-request">
+            <div className="badge card-badge">Service Request</div>
+            <h2>Ask Centrum for a service change</h2>
+            <p className="page-intro">Use this for a technician visit, plan change, relocation, equipment replacement, or another service request.</p>
+            <form className="form-grid" onSubmit={submitServiceRequest}>
+              <label>
+                Request type
+                <select value={requestType} onChange={(event) => setRequestType(event.target.value as keyof typeof requestTypeLabels)}>
+                  {Object.entries(requestTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              <label>
+                Details
+                <textarea rows={4} value={requestDetails} onChange={(event) => setRequestDetails(event.target.value)} placeholder="Tell us what you need." required />
+              </label>
+              {requestType === "technical_visit" ? (
+                <LocationCapture
+                  value={requestLocation}
+                  onChange={setRequestLocation}
+                  title="Technician visit location"
+                  description="Optional. You can use your saved service location or choose another point."
+                  preset={savedLocation}
+                  presetLabel="Use my saved service location"
+                />
+              ) : null}
+              {requestError ? <p className="form-alert form-alert-error">{requestError}</p> : null}
+              {requestMessage ? <p className="form-alert form-alert-success">{requestMessage}</p> : null}
+              <button className="btn btn-primary" type="submit" disabled={isSubmittingRequest}>{isSubmittingRequest ? "Sending..." : "Send Request"}</button>
+            </form>
+          </article>
+
+          <article className="card portal-location-card" id="simple-location">
+            <div className="badge card-badge">Service Location</div>
+            <h2>Your saved service location</h2>
+            <p className="page-intro">Keep your installation point saved so Centrum can find you quickly when support or a technician visit is needed.</p>
+            <LocationCapture
+              value={locationDraft}
+              onChange={(nextLocation) => {
+                if (nextLocation) void saveServiceLocation(nextLocation);
+              }}
+              title="Your service location"
+              description="Tap Upload location, choose the correct point on Google Maps, then send it."
+              disabled={locationSaving}
+              allowClear={false}
+            />
+            {locationSaving ? <p className="field-note">Uploading your location...</p> : null}
+            {locationError ? <p className="form-alert form-alert-error">{locationError}</p> : null}
+            {locationMessage ? <p className="form-alert form-alert-success">{locationMessage}</p> : null}
+            {savedLocation ? (
+              <div className="section-actions portal-location-actions">
+                <button type="button" className="btn btn-secondary" disabled={locationSaving} onClick={() => void clearServiceLocation()}>Remove saved location</button>
+              </div>
+            ) : null}
+          </article>
+
+          <section className="portal-simple-two-col">
+            <article className="card">
+              <div className="badge card-badge">Billing</div>
+              <h2>Renewal & payment</h2>
+              <div className="dashboard-detail-list">
+                <span><strong>Next renewal:</strong> {formatDate(profile?.renewal_date, locale)}</span>
+                <span><strong>Status:</strong> {renewalState.label}</span>
+                {plan ? <span><strong>Plan price:</strong> ${plan.monthly_price_usd}/month</span> : null}
+                {latestPayment ? <span><strong>Last payment:</strong> ${Number(latestPayment.amount_usd).toFixed(2)} on {formatDateTime(latestPayment.paid_at, locale)}</span> : null}
+              </div>
+            </article>
+
+            <article className="card">
+              <div className="badge card-badge">Notices</div>
+              <h2>Important updates</h2>
+              <div className="portal-feed portal-simple-announcements">
+                {recentAnnouncements.length ? recentAnnouncements.map((announcement) => (
+                  <div
+                    className={`portal-feed-item ${notificationDeepLink.highlightAnnouncement === String(announcement.id) ? "notification-highlight" : ""}`}
+                    id={`announcement-${announcement.id}`}
+                    key={announcement.id}
+                  >
+                    <strong>{localizedField(announcement as unknown as Record<string, unknown>, "title", locale)}</strong>
+                    <p>{localizedField(announcement as unknown as Record<string, unknown>, "body", locale)}</p>
+                    <span>{formatDateTime(announcement.created_at, locale)}</span>
+                  </div>
+                )) : <p className="empty-state">No current announcements.</p>}
+              </div>
+            </article>
+          </section>
+
+          <article className="card portal-simple-settings-card">
+            <div>
+              <div className="badge card-badge">Account</div>
+              <h2>Need the full portal?</h2>
+              <p className="page-intro">Simple mode keeps the everyday tools on this page. Advanced mode restores the full workspace menu.</p>
+            </div>
+            <Link href="/portal/account" className="btn btn-secondary">Account Settings</Link>
+          </article>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="animate-fade-in portal-dashboard portal-console-page">
@@ -504,7 +772,7 @@ export default function PortalDashboardPage() {
         <div>
           <div className={`badge badge-pulse page-badge customer-network-badge customer-network-${customerNodeState.key}`}>Your Node: {customerNodeState.label}</div>
           <h1>Customer Portal</h1>
-          <p className="page-intro">Welcome back, {displayName}. Your service, billing, support, and account settings now live in focused workspaces.</p>
+          <p className="page-intro">{formatWelcomeBack(displayName, locale)}</p>
         </div>
 
         <div className="section-actions portal-console-header-actions">
@@ -581,8 +849,8 @@ export default function PortalDashboardPage() {
               <div className="portal-overview-grid">
                 <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("service")}>
                   <span className="admin-overview-label">Current Plan</span>
-                  <strong>{plan?.name ?? "Not assigned"}</strong>
-                  <small>{plan ? `${plan.speed_down_mbps} Mbps down · ${plan.speed_up_mbps} Mbps up` : "Centrum has not assigned a plan yet."}</small>
+                  <strong>{plan ? localizedField(plan as unknown as Record<string, unknown>, "name", locale) : "Not assigned"}</strong>
+                  <small>{plan ? formatPlanSpeedSummary(plan) : "Centrum has not assigned a plan yet."}</small>
                   <span className="admin-overview-action">Open service →</span>
                 </button>
 
@@ -595,15 +863,15 @@ export default function PortalDashboardPage() {
 
                 <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("billing")}>
                   <span className="admin-overview-label">Next Renewal</span>
-                  <strong>{formatDate(profile?.renewal_date)}</strong>
+                  <strong>{formatDate(profile?.renewal_date, locale)}</strong>
                   <small>{renewalState.label}{plan ? ` · $${plan.monthly_price_usd}/month` : ""}</small>
                   <span className="admin-overview-action">Open billing →</span>
                 </button>
 
                 <button type="button" className="admin-overview-card" onClick={() => setActiveWorkspace("support")}>
                   <span className="admin-overview-label">Support</span>
-                  <strong>{tickets.length} active ticket{tickets.length === 1 ? "" : "s"}</strong>
-                  <small>{announcements.length ? `${announcements.length} recent notice${announcements.length === 1 ? "" : "s"}` : "No current announcements."}</small>
+                  <strong>{formatActiveTicketCount(tickets.length, locale)}</strong>
+                  <small>{announcements.length ? formatRecentNoticeCount(announcements.length, locale) : "No current announcements."}</small>
                   <span className="admin-overview-action">Open support →</span>
                 </button>
               </div>
@@ -619,7 +887,7 @@ export default function PortalDashboardPage() {
                   <div className="dashboard-detail-list">
                     <span><strong>Node:</strong> {node?.name ?? "Not assigned"}</span>
                     <span><strong>Address:</strong> {profile?.address ?? "Not provided"}</span>
-                    <span><strong>Activated:</strong> {formatDate(profile?.activation_date)}</span>
+                    <span><strong>Activated:</strong> {formatDate(profile?.activation_date, locale)}</span>
                   </div>
                 </article>
 
@@ -651,13 +919,14 @@ export default function PortalDashboardPage() {
               <div className="section-grid portal-service-summary-grid">
                 <article className="card dashboard-summary-card">
                   <div className="badge card-badge">Current Plan</div>
-                  <h2>{plan?.name ?? "No plan assigned"}</h2>
+                  <h2>{plan ? localizedField(plan as unknown as Record<string, unknown>, "name", locale) : "No plan assigned"}</h2>
                   {plan ? (
                     <>
+                      {localizedField(plan as unknown as Record<string, unknown>, "description", locale) ? <p className="plan-description portal-plan-description">{localizedField(plan as unknown as Record<string, unknown>, "description", locale)}</p> : null}
                       <div className="dashboard-metrics">
-                        <span><strong>{plan.speed_down_mbps}</strong> Mbps down</span>
-                        <span><strong>{plan.speed_up_mbps}</strong> Mbps up</span>
-                        <span><strong>{plan.monthly_quota_gb}</strong> GB quota</span>
+                        {plan.speed_down_mbps !== null ? <span><strong>{plan.speed_down_mbps}</strong> Mbps down</span> : null}
+                        {plan.speed_up_mbps !== null ? <span><strong>{plan.speed_up_mbps}</strong> Mbps up</span> : null}
+                        {plan.monthly_quota_gb !== null ? <span><strong>{plan.monthly_quota_gb}</strong> GB quota</span> : null}
                         <span><strong>${plan.monthly_price_usd}</strong>/month</span>
                       </div>
                     </>
@@ -681,7 +950,7 @@ export default function PortalDashboardPage() {
                     <span><strong>Account:</strong> {formatStatus(serviceStatus)}</span>
                     {node?.latency_ms !== null && node?.latency_ms !== undefined ? <span><strong>Latency:</strong> {node.latency_ms} ms</span> : null}
                     <span><strong>Address:</strong> {profile?.address ?? "Not provided"}</span>
-                    <span><strong>Activated:</strong> {formatDate(profile?.activation_date)}</span>
+                    <span><strong>Activated:</strong> {formatDate(profile?.activation_date, locale)}</span>
                   </div>
                 </article>
               </div>
@@ -756,7 +1025,7 @@ export default function PortalDashboardPage() {
                           <span className="field-note">Location attached to this request ✓</span>
                         ) : null}
                         {request.admin_note ? <p className="field-note"><strong>Centrum:</strong> {request.admin_note}</p> : null}
-                        <span>{formatDateTime(request.created_at)}</span>
+                        <span>{formatDateTime(request.created_at, locale)}</span>
                       </div>
                     )) : <p className="empty-state">No service requests yet.</p>}
                   </div>
@@ -778,7 +1047,7 @@ export default function PortalDashboardPage() {
                         <strong>#{request.id} · {request.preferred_plan_name || "Service recommendation"}</strong>
                         <span className={`status-pill status-${request.status}`}>{formatStatus(request.status)}</span>
                       </div>
-                      <span>{formatDateTime(request.created_at)}</span>
+                      <span>{formatDateTime(request.created_at, locale)}</span>
                     </div>
                   )) : <p className="empty-state">No signed-in customization requests yet.</p>}
                 </div>
@@ -800,7 +1069,7 @@ export default function PortalDashboardPage() {
               <div className="section-grid portal-billing-summary-grid">
                 <article className="card dashboard-summary-card">
                   <div className="badge card-badge">Next Renewal</div>
-                  <h2>{formatDate(profile?.renewal_date)}</h2>
+                  <h2>{formatDate(profile?.renewal_date, locale)}</h2>
                   <span className={`status-pill ${renewalState.className}`}>{renewalState.label}</span>
                   {plan ? <p className="field-note">Expected plan charge: ${plan.monthly_price_usd}</p> : null}
                 </article>
@@ -810,7 +1079,7 @@ export default function PortalDashboardPage() {
                   <h2>{latestPayment ? `$${Number(latestPayment.amount_usd).toFixed(2)}` : "No payment yet"}</h2>
                   {latestPayment ? (
                     <div className="dashboard-detail-list">
-                      <span>{formatDateTime(latestPayment.paid_at)}</span>
+                      <span>{formatDateTime(latestPayment.paid_at, locale)}</span>
                       <span>{formatStatus(latestPayment.payment_method)}</span>
                       {latestPayment.reference ? <span>Ref: {latestPayment.reference}</span> : null}
                     </div>
@@ -824,12 +1093,12 @@ export default function PortalDashboardPage() {
                     <div className="badge card-badge">Billing History</div>
                     <h2>Recent Payments</h2>
                   </div>
-                  <span className="status-pill status-active">{payments.length} loaded</span>
+                  <span className="status-pill status-active">{formatLoadedCount(payments.length, locale)}</span>
                 </div>
                 <div className="portal-payment-list compact-scroll-list portal-payment-list-redesigned">
                   {payments.length ? payments.map((payment) => (
                     <div className="portal-payment-row" key={payment.id}>
-                      <div><strong>${Number(payment.amount_usd).toFixed(2)}</strong><span>{formatDateTime(payment.paid_at)}</span></div>
+                      <div><strong>${Number(payment.amount_usd).toFixed(2)}</strong><span>{formatDateTime(payment.paid_at, locale)}</span></div>
                       <div><span>{formatStatus(payment.payment_method)}</span>{payment.reference ? <code>{payment.reference}</code> : null}</div>
                     </div>
                   )) : <p className="empty-state">No payment records yet.</p>}
@@ -859,7 +1128,7 @@ export default function PortalDashboardPage() {
                       <div className="badge card-badge">Communication</div>
                       <h2>Active Tickets</h2>
                     </div>
-                    <span className="status-pill status-active">{tickets.length} active</span>
+                    <span className="status-pill status-active">{formatActiveCount(tickets.length, locale)}</span>
                   </div>
                   <ul className="simple-list compact-scroll-list portal-ticket-list">
                     {tickets.length ? tickets.map((ticket) => (
@@ -883,9 +1152,9 @@ export default function PortalDashboardPage() {
                         id={`announcement-${announcement.id}`}
                         key={announcement.id}
                       >
-                        <strong>{announcement.title}</strong>
-                        <p>{announcement.body}</p>
-                        <span>{formatDateTime(announcement.created_at)}</span>
+                        <strong>{localizedField(announcement as unknown as Record<string, unknown>, "title", locale)}</strong>
+                        <p>{localizedField(announcement as unknown as Record<string, unknown>, "body", locale)}</p>
+                        <span>{formatDateTime(announcement.created_at, locale)}</span>
                       </div>
                     )) : <p className="empty-state">No current announcements.</p>}
                   </div>
@@ -914,7 +1183,7 @@ export default function PortalDashboardPage() {
                     <span><strong>Phone:</strong> {profile?.phone ?? "Not provided"}</span>
                     <span><strong>Address:</strong> {profile?.address ?? "Not provided"}</span>
                     <span><strong>Service status:</strong> {formatStatus(serviceStatus)}</span>
-                    <span><strong>Activated:</strong> {formatDate(profile?.activation_date)}</span>
+                    <span><strong>Activated:</strong> {formatDate(profile?.activation_date, locale)}</span>
                   </div>
                 </article>
 
@@ -962,15 +1231,53 @@ function readFullName(account: User) {
   return fallbackName.split(/[._-]/).filter(Boolean).map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`).join(" ");
 }
 
+function formatPlanSpeedSummary(plan: DbPlan) {
+  const parts = [
+    plan.speed_down_mbps !== null ? `${plan.speed_down_mbps} Mbps down` : null,
+    plan.speed_up_mbps !== null ? `${plan.speed_up_mbps} Mbps up` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : (plan.description || "Plan details are managed by Centrum.");
+}
+
 function formatStatus(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "Not set";
-  return new Intl.DateTimeFormat("en", { year: "numeric", month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
+function formatDate(value: string | null | undefined, locale: Locale) {
+  if (!value) return locale === "fr" ? "Non défini" : locale === "ar" ? "غير محدد" : "Not set";
+  return new Intl.DateTimeFormat(localizedDateLocale(locale), { year: "numeric", month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+function formatDateTime(value: string, locale: Locale) {
+  return new Intl.DateTimeFormat(localizedDateLocale(locale), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function formatWelcomeBack(displayName: string, locale: Locale) {
+  if (locale === "fr") return `Bon retour, ${displayName}. Votre service, facturation, assistance et paramètres de compte sont maintenant organisés dans des espaces dédiés.`;
+  if (locale === "ar") return `مرحبًا بعودتك، ${displayName}. أصبحت خدمتك وفوترة حسابك ودعمك وإعداداتك موزعة الآن ضمن أقسام واضحة.`;
+  return `Welcome back, ${displayName}. Your service, billing, support, and account settings now live in focused workspaces.`;
+}
+
+function formatActiveTicketCount(count: number, locale: Locale) {
+  if (locale === "fr") return `${count} ticket${count === 1 ? "" : "s"} actif${count === 1 ? "" : "s"}`;
+  if (locale === "ar") return `${count} تذكرة نشطة`;
+  return `${count} active ticket${count === 1 ? "" : "s"}`;
+}
+
+function formatRecentNoticeCount(count: number, locale: Locale) {
+  if (locale === "fr") return `${count} avis récent${count === 1 ? "" : "s"}`;
+  if (locale === "ar") return `${count} إشعار حديث`;
+  return `${count} recent notice${count === 1 ? "" : "s"}`;
+}
+
+function formatLoadedCount(count: number, locale: Locale) {
+  if (locale === "fr") return `${count} chargé${count === 1 ? "" : "s"}`;
+  if (locale === "ar") return `${count} محمّلة`;
+  return `${count} loaded`;
+}
+
+function formatActiveCount(count: number, locale: Locale) {
+  if (locale === "fr") return `${count} actif${count === 1 ? "" : "s"}`;
+  if (locale === "ar") return `${count} نشطة`;
+  return `${count} active`;
 }

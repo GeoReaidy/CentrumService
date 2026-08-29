@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteHeader } from "@/components/SiteHeader";
-import { SiteFooter } from "@/components/SiteFooter";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -54,12 +54,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" dir="ltr" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
-        <a className="skip-link" href="#main-content">Skip to main content</a>
-        <SiteHeader />
-        <main id="main-content" className="container content" tabIndex={-1}>{children}</main>
-        <SiteFooter />
+        <LanguageProvider>
+          <SiteHeader />
+          <main className="container content">{children}</main>
+          <footer className="site-footer">
+            <div className="container">
+              <p>Centrum Service © {new Date().getFullYear()} - Reliable internet for Bekaa.</p>
+            </div>
+          </footer>
+        </LanguageProvider>
       </body>
     </html>
   );

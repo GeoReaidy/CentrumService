@@ -46,9 +46,14 @@ type DbCustomerLocation = {
 type DbPlan = {
   id: number;
   name: string;
-  speed_down_mbps: number;
-  speed_up_mbps: number;
-  monthly_quota_gb: number;
+  name_fr: string | null;
+  name_ar: string | null;
+  description: string | null;
+  description_fr: string | null;
+  description_ar: string | null;
+  speed_down_mbps: number | null;
+  speed_up_mbps: number | null;
+  monthly_quota_gb: number | null;
   monthly_price_usd: number;
   is_active: boolean;
 };
@@ -77,7 +82,11 @@ type DbTicket = {
 type CoverageRegion = {
   id: number;
   name: string;
+  name_fr: string | null;
+  name_ar: string | null;
   description: string | null;
+  description_fr: string | null;
+  description_ar: string | null;
   is_active: boolean;
   sort_order: number;
 };
@@ -110,6 +119,11 @@ type ProfileDraft = {
 
 type PlanForm = {
   name: string;
+  name_fr: string;
+  name_ar: string;
+  description: string;
+  description_fr: string;
+  description_ar: string;
   speed_down_mbps: string;
   speed_up_mbps: string;
   monthly_quota_gb: string;
@@ -118,6 +132,11 @@ type PlanForm = {
 
 const emptyPlanForm: PlanForm = {
   name: "",
+  name_fr: "",
+  name_ar: "",
+  description: "",
+  description_fr: "",
+  description_ar: "",
   speed_down_mbps: "",
   speed_up_mbps: "",
   monthly_quota_gb: "",
@@ -179,7 +198,11 @@ export default function AdminPage() {
   const [updatingContactId, setUpdatingContactId] = useState<number | null>(null);
   const [coverageRegions, setCoverageRegions] = useState<CoverageRegion[]>([]);
   const [newRegionName, setNewRegionName] = useState("");
+  const [newRegionNameFr, setNewRegionNameFr] = useState("");
+  const [newRegionNameAr, setNewRegionNameAr] = useState("");
   const [newRegionDescription, setNewRegionDescription] = useState("");
+  const [newRegionDescriptionFr, setNewRegionDescriptionFr] = useState("");
+  const [newRegionDescriptionAr, setNewRegionDescriptionAr] = useState("");
   const [coverageMessage, setCoverageMessage] = useState("");
   const [coverageError, setCoverageError] = useState("");
   const [savingRegionId, setSavingRegionId] = useState<number | null>(null);
@@ -218,7 +241,7 @@ export default function AdminPage() {
     if (!supabase) return;
     const { data, error } = await supabase
       .from("plans")
-      .select("id,name,speed_down_mbps,speed_up_mbps,monthly_quota_gb,monthly_price_usd,is_active")
+      .select("id,name,name_fr,name_ar,description,description_fr,description_ar,speed_down_mbps,speed_up_mbps,monthly_quota_gb,monthly_price_usd,is_active")
       .order("monthly_price_usd", { ascending: true });
     if (error) { console.error("Admin plans load failed", error); setPlanError(toFriendlyErrorMessage(error, "Plans could not be loaded right now.")); }
     else { setPlanError(""); setPlans((data as DbPlan[] | null) ?? []); }
@@ -280,7 +303,7 @@ export default function AdminPage() {
     if (!supabase) return;
     const { data, error } = await supabase
       .from("coverage_regions")
-      .select("id,name,description,is_active,sort_order")
+      .select("id,name,name_fr,name_ar,description,description_fr,description_ar,is_active,sort_order")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
     if (error) { console.error("Admin coverage load failed", error); setCoverageError(toFriendlyErrorMessage(error, "Coverage regions could not be loaded right now.")); }
@@ -398,12 +421,21 @@ export default function AdminPage() {
   const visiblePlans = useMemo(() => {
     const query = planSearch.trim().toLowerCase();
     return [...plans].filter((plan) => {
-      const matchesSearch = !query || plan.name.toLowerCase().includes(query) || String(plan.speed_down_mbps).includes(query) || String(plan.monthly_price_usd).includes(query);
+      const matchesSearch = !query
+        || plan.name.toLowerCase().includes(query)
+        || (plan.name_fr ?? "").toLowerCase().includes(query)
+        || (plan.name_ar ?? "").toLowerCase().includes(query)
+        || (plan.description ?? "").toLowerCase().includes(query)
+        || (plan.description_fr ?? "").toLowerCase().includes(query)
+        || (plan.description_ar ?? "").toLowerCase().includes(query)
+        || (plan.speed_down_mbps !== null && String(plan.speed_down_mbps).includes(query))
+        || (plan.speed_up_mbps !== null && String(plan.speed_up_mbps).includes(query))
+        || String(plan.monthly_price_usd).includes(query);
       const matchesStatus = planStatusFilter === "all" || (planStatusFilter === "active" ? plan.is_active : !plan.is_active);
       return matchesSearch && matchesStatus;
     }).sort((a, b) => {
       if (planSort === "name") return a.name.localeCompare(b.name);
-      if (planSort === "speed_high") return b.speed_down_mbps - a.speed_down_mbps;
+      if (planSort === "speed_high") return (b.speed_down_mbps ?? -1) - (a.speed_down_mbps ?? -1);
       if (planSort === "price_high") return b.monthly_price_usd - a.monthly_price_usd;
       return a.monthly_price_usd - b.monthly_price_usd;
     });
@@ -693,7 +725,11 @@ export default function AdminPage() {
     const nextSort = coverageRegions.length ? Math.max(...coverageRegions.map((region) => region.sort_order)) + 10 : 10;
     const { error } = await supabase.from("coverage_regions").insert({
       name,
+      name_fr: newRegionNameFr.trim() || null,
+      name_ar: newRegionNameAr.trim() || null,
       description: newRegionDescription.trim() || null,
+      description_fr: newRegionDescriptionFr.trim() || null,
+      description_ar: newRegionDescriptionAr.trim() || null,
       is_active: true,
       sort_order: nextSort,
     });
@@ -702,7 +738,11 @@ export default function AdminPage() {
       return;
     }
     setNewRegionName("");
+    setNewRegionNameFr("");
+    setNewRegionNameAr("");
     setNewRegionDescription("");
+    setNewRegionDescriptionFr("");
+    setNewRegionDescriptionAr("");
     setCoverageMessage(`“${name}” is now listed as an active coverage region.`);
     await fetchCoverageRegions();
   }
@@ -843,9 +883,14 @@ export default function AdminPage() {
     setEditingPlanId(plan.id);
     setPlanForm({
       name: plan.name,
-      speed_down_mbps: String(plan.speed_down_mbps),
-      speed_up_mbps: String(plan.speed_up_mbps),
-      monthly_quota_gb: String(plan.monthly_quota_gb),
+      name_fr: plan.name_fr ?? "",
+      name_ar: plan.name_ar ?? "",
+      description: plan.description ?? "",
+      description_fr: plan.description_fr ?? "",
+      description_ar: plan.description_ar ?? "",
+      speed_down_mbps: plan.speed_down_mbps === null ? "" : String(plan.speed_down_mbps),
+      speed_up_mbps: plan.speed_up_mbps === null ? "" : String(plan.speed_up_mbps),
+      monthly_quota_gb: plan.monthly_quota_gb === null ? "" : String(plan.monthly_quota_gb),
       monthly_price_usd: String(plan.monthly_price_usd),
     });
     setPlanError("");
@@ -861,17 +906,42 @@ export default function AdminPage() {
     event.preventDefault();
     if (!supabase) return;
     const name = planForm.name.trim();
-    const down = Number(planForm.speed_down_mbps);
-    const up = Number(planForm.speed_up_mbps);
-    const quota = Number(planForm.monthly_quota_gb);
+    const nameFr = planForm.name_fr.trim();
+    const nameAr = planForm.name_ar.trim();
+    const description = planForm.description.trim();
+    const descriptionFr = planForm.description_fr.trim();
+    const descriptionAr = planForm.description_ar.trim();
+    const down = planForm.speed_down_mbps.trim() ? Number(planForm.speed_down_mbps) : null;
+    const up = planForm.speed_up_mbps.trim() ? Number(planForm.speed_up_mbps) : null;
+    const quota = planForm.monthly_quota_gb.trim() ? Number(planForm.monthly_quota_gb) : null;
     const price = Number(planForm.monthly_price_usd);
-    if (!name || !Number.isFinite(down) || down <= 0 || !Number.isFinite(up) || up <= 0 || !Number.isFinite(quota) || quota < 0 || !Number.isFinite(price) || price < 0) {
-      setPlanError("Enter a name and valid plan values. Speeds must be greater than 0.");
+
+    const invalidDown = down !== null && (!Number.isFinite(down) || down <= 0);
+    const invalidUp = up !== null && (!Number.isFinite(up) || up <= 0);
+    const invalidQuota = quota !== null && (!Number.isFinite(quota) || quota < 0);
+
+    const invalidTranslatedDescription = [descriptionFr, descriptionAr].some((value) => value.length > 160 || /[\r\n]/.test(value));
+
+    if (!name || !description || description.length > 160 || /[\r\n]/.test(description) || invalidTranslatedDescription || invalidDown || invalidUp || invalidQuota || !Number.isFinite(price) || price < 0) {
+      setPlanError("Enter a plan name, a one-line description (160 characters max), a valid price, and valid optional speed/quota values.");
       return;
     }
+
     setIsSavingPlan(true);
     setPlanError("");
-    const payload = { name, speed_down_mbps: down, speed_up_mbps: up, monthly_quota_gb: quota, monthly_price_usd: price, is_active: true };
+    const payload = {
+      name,
+      name_fr: nameFr || null,
+      name_ar: nameAr || null,
+      description,
+      description_fr: descriptionFr || null,
+      description_ar: descriptionAr || null,
+      speed_down_mbps: down,
+      speed_up_mbps: up,
+      monthly_quota_gb: quota,
+      monthly_price_usd: price,
+      is_active: true,
+    };
     const result = editingPlanId === null ? await supabase!.from("plans").insert(payload) : await supabase!.from("plans").update(payload).eq("id", editingPlanId);
     if (result.error) setPlanError(toFriendlyErrorMessage(result.error, "The plan could not be saved. Please try again."));
     else {
@@ -1227,10 +1297,19 @@ export default function AdminPage() {
         </div>
 
         <form className="form-grid" onSubmit={addCoverageRegion}>
+          <div className="badge card-badge">English · required</div>
           <div className="form-two-col">
             <label>Region name<input value={newRegionName} onChange={(event) => setNewRegionName(event.target.value)} placeholder="e.g. Ainata" required /></label>
             <label>Description<input value={newRegionDescription} onChange={(event) => setNewRegionDescription(event.target.value)} placeholder="Short availability note for customers" /></label>
           </div>
+          <div className="badge card-badge">Translations · optional</div>
+          <div className="form-two-col">
+            <label>Region name · French<input value={newRegionNameFr} onChange={(event) => setNewRegionNameFr(event.target.value)} placeholder="French name" /></label>
+            <label>Description · French<input value={newRegionDescriptionFr} onChange={(event) => setNewRegionDescriptionFr(event.target.value)} placeholder="French availability note" /></label>
+            <label>Region name · Arabic<input dir="rtl" value={newRegionNameAr} onChange={(event) => setNewRegionNameAr(event.target.value)} placeholder="الاسم بالعربية" /></label>
+            <label>Description · Arabic<input dir="rtl" value={newRegionDescriptionAr} onChange={(event) => setNewRegionDescriptionAr(event.target.value)} placeholder="ملاحظة التغطية بالعربية" /></label>
+          </div>
+          <p className="field-note">Leave translations blank to show the English content automatically.</p>
           <div className="section-actions"><button type="submit" className="btn btn-primary">Add Coverage Region</button></div>
         </form>
 
@@ -1251,11 +1330,26 @@ export default function AdminPage() {
               </div>
               <div className="plan-actions">
                 <button type="button" className="btn btn-secondary btn-compact" disabled={savingRegionId === region.id} onClick={() => {
-                  const name = window.prompt("Region name", region.name)?.trim();
+                  const name = window.prompt("Region name · English", region.name)?.trim();
                   if (!name) return;
-                  const description = window.prompt("Public description", region.description ?? "");
+                  const description = window.prompt("Public description · English", region.description ?? "");
                   if (description === null) return;
-                  void updateCoverageRegion(region, { name, description: description.trim() || null });
+                  const name_fr = window.prompt("Region name · French (optional)", region.name_fr ?? "");
+                  if (name_fr === null) return;
+                  const description_fr = window.prompt("Public description · French (optional)", region.description_fr ?? "");
+                  if (description_fr === null) return;
+                  const name_ar = window.prompt("Region name · Arabic (optional)", region.name_ar ?? "");
+                  if (name_ar === null) return;
+                  const description_ar = window.prompt("Public description · Arabic (optional)", region.description_ar ?? "");
+                  if (description_ar === null) return;
+                  void updateCoverageRegion(region, {
+                    name,
+                    description: description.trim() || null,
+                    name_fr: name_fr.trim() || null,
+                    description_fr: description_fr.trim() || null,
+                    name_ar: name_ar.trim() || null,
+                    description_ar: description_ar.trim() || null,
+                  });
                 }}>Edit</button>
                 <button type="button" className="btn btn-secondary btn-compact" disabled={savingRegionId === region.id} onClick={() => void updateCoverageRegion(region, { is_active: !region.is_active })}>{region.is_active ? "Hide" : "Publish"}</button>
                 <button type="button" className="btn btn-secondary btn-compact" disabled={savingRegionId === region.id} onClick={() => {
@@ -1511,11 +1605,33 @@ export default function AdminPage() {
         <h2>Internet Plans</h2>
         <p className="page-intro">Create and maintain the plans shown on the public Plans page.</p>
         <form className="form-grid admin-plan-form" onSubmit={savePlan}>
+          <div className="badge card-badge">English · required</div>
           <label>Plan name<input value={planForm.name} onChange={(event) => setPlanForm({ ...planForm, name: event.target.value })} placeholder="e.g. Centrum 100" required /></label>
+          <label>
+            Short description
+            <input
+              value={planForm.description}
+              onChange={(event) => setPlanForm({ ...planForm, description: event.target.value.replace(/[\r\n]+/g, " ") })}
+              placeholder="One short line customers can understand at a glance"
+              maxLength={160}
+              required
+            />
+            <span className="field-note plan-description-counter">{planForm.description.length}/160 · one line</span>
+          </label>
+          <div className="badge card-badge">Translations · optional</div>
+          <div className="form-two-col">
+            <label>Plan name · French<input value={planForm.name_fr} onChange={(event) => setPlanForm({ ...planForm, name_fr: event.target.value })} placeholder="French plan name" /></label>
+            <label>Plan name · Arabic<input dir="rtl" value={planForm.name_ar} onChange={(event) => setPlanForm({ ...planForm, name_ar: event.target.value })} placeholder="اسم الباقة بالعربية" /></label>
+          </div>
+          <div className="form-two-col">
+            <label>Short description · French<input value={planForm.description_fr} onChange={(event) => setPlanForm({ ...planForm, description_fr: event.target.value.replace(/[\r\n]+/g, " ") })} placeholder="French description" maxLength={160} /><span className="field-note">{planForm.description_fr.length}/160</span></label>
+            <label>Short description · Arabic<input dir="rtl" value={planForm.description_ar} onChange={(event) => setPlanForm({ ...planForm, description_ar: event.target.value.replace(/[\r\n]+/g, " ") })} placeholder="وصف عربي قصير" maxLength={160} /><span className="field-note">{planForm.description_ar.length}/160</span></label>
+          </div>
+          <p className="field-note">Leave a translation blank to use the English plan name or description automatically.</p>
           <div className="form-four-col">
-            <label>Download Mbps<input type="number" min="1" value={planForm.speed_down_mbps} onChange={(event) => setPlanForm({ ...planForm, speed_down_mbps: event.target.value })} required /></label>
-            <label>Upload Mbps<input type="number" min="1" value={planForm.speed_up_mbps} onChange={(event) => setPlanForm({ ...planForm, speed_up_mbps: event.target.value })} required /></label>
-            <label>Monthly quota GB<input type="number" min="0" value={planForm.monthly_quota_gb} onChange={(event) => setPlanForm({ ...planForm, monthly_quota_gb: event.target.value })} required /></label>
+            <label>Download Mbps <span className="field-note">(optional)</span><input type="number" min="1" value={planForm.speed_down_mbps} onChange={(event) => setPlanForm({ ...planForm, speed_down_mbps: event.target.value })} placeholder="Optional" /></label>
+            <label>Upload Mbps <span className="field-note">(optional)</span><input type="number" min="1" value={planForm.speed_up_mbps} onChange={(event) => setPlanForm({ ...planForm, speed_up_mbps: event.target.value })} placeholder="Optional" /></label>
+            <label>Monthly quota GB <span className="field-note">(optional)</span><input type="number" min="0" value={planForm.monthly_quota_gb} onChange={(event) => setPlanForm({ ...planForm, monthly_quota_gb: event.target.value })} placeholder="Optional" /></label>
             <label>Monthly price USD<input type="number" min="0" step="0.01" value={planForm.monthly_price_usd} onChange={(event) => setPlanForm({ ...planForm, monthly_price_usd: event.target.value })} required /></label>
           </div>
           {planError ? <p className="form-alert form-alert-error">{planError}</p> : null}
@@ -1535,7 +1651,13 @@ export default function AdminPage() {
             <div className="plan-row" key={plan.id}>
               <div className="plan-summary">
                 <div className="plan-name-row"><strong>{plan.name}</strong><span className={`status-pill ${plan.is_active ? "status-active" : "status-inactive"}`}>{plan.is_active ? "Active" : "Inactive"}</span></div>
-                <div className="plan-meta"><span>{plan.speed_down_mbps}/{plan.speed_up_mbps} Mbps</span><span>{plan.monthly_quota_gb} GB</span><span>${plan.monthly_price_usd}/month</span></div>
+                {plan.description ? <p className="plan-description admin-plan-description">{plan.description}</p> : <p className="field-note">No customer description set yet.</p>}
+                <div className="plan-meta">
+                  {plan.speed_down_mbps !== null ? <span>↓ {plan.speed_down_mbps} Mbps</span> : null}
+                  {plan.speed_up_mbps !== null ? <span>↑ {plan.speed_up_mbps} Mbps</span> : null}
+                  {plan.monthly_quota_gb !== null ? <span>{plan.monthly_quota_gb} GB</span> : null}
+                  <span>${plan.monthly_price_usd}/month</span>
+                </div>
               </div>
               <div className="plan-actions">
                 <button type="button" className="btn btn-secondary btn-compact" onClick={() => startEditingPlan(plan)}>Edit</button>

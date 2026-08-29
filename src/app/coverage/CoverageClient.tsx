@@ -7,6 +7,8 @@ import { statusSlug } from "@/lib/network-monitoring";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import type { PublicCoverageRegion } from "@/lib/public-catalog-server";
+import { useLanguage } from "@/components/LanguageProvider";
+import { localizedField } from "@/lib/i18n";
 
 type CoverageClientProps = {
   initialAreas: PublicCoverageRegion[];
@@ -18,6 +20,7 @@ export function CoverageClient({
   initialLoadFailed,
 }: CoverageClientProps) {
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
   const [networkStatus, setNetworkStatus] = useState("Monitoring Pending");
   const [areas, setAreas] =
     useState<PublicCoverageRegion[]>(initialAreas);
@@ -46,7 +49,7 @@ export function CoverageClient({
       try {
         const { data, error } = await supabase
           .from("coverage_regions")
-          .select("id,name,description,sort_order")
+          .select("id,name,name_fr,name_ar,description,description_fr,description_ar,sort_order")
           .eq("is_active", true)
           .order("sort_order", { ascending: true })
           .order("name", { ascending: true });
@@ -210,9 +213,9 @@ export function CoverageClient({
               <article className="card coverage-area-card" key={area.id}>
                 <span className="coverage-area-dot" aria-hidden="true" />
                 <div>
-                  <h2>{area.name}</h2>
+                  <h2>{localizedField(area as unknown as Record<string, unknown>, "name", locale)}</h2>
                   <p>
-                    {area.description ||
+                    {localizedField(area as unknown as Record<string, unknown>, "description", locale) ||
                       "Contact Centrum Service to confirm availability at your exact address."}
                   </p>
                 </div>

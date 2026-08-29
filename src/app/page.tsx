@@ -4,22 +4,32 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { statusSlug } from "@/lib/network-monitoring";
+import { useLanguage } from "@/components/LanguageProvider";
+import { localizedField } from "@/lib/i18n";
 
 type DbPlan = {
   id: number;
   name: string;
-  speed_down_mbps: number;
-  speed_up_mbps: number;
+  name_fr: string | null;
+  name_ar: string | null;
+  description: string | null;
+  description_fr: string | null;
+  description_ar: string | null;
+  speed_down_mbps: number | null;
+  speed_up_mbps: number | null;
   monthly_price_usd: number;
 };
 
 type CoverageRegion = {
   id: number;
   name: string;
+  name_fr: string | null;
+  name_ar: string | null;
 };
 
 export default function HomePage() {
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
 
   const [plans, setPlans] = useState<DbPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(() => Boolean(supabase));
@@ -33,13 +43,23 @@ export default function HomePage() {
    * Global maintenance remains the only manual override.
    */
   const fetchNetworkStatus = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      setNetworkStatus("Monitoring Unavailable");
+      return;
+    }
 
+    // Public users are intentionally not allowed to read system_settings directly.
+    // Use the security-definer RPC that exposes only the safe public status label.
     const { data, error } = await supabase.rpc("get_public_network_status");
-    if (error) return;
 
-    const row = (Array.isArray(data) ? data[0] : null) as { status?: string } | null;
-    if (row?.status) setNetworkStatus(row.status);
+    if (error) {
+      console.error("Could not refresh public network status", error);
+      setNetworkStatus("Monitoring Unavailable");
+      return;
+    }
+
+    const row = (Array.isArray(data) ? data[0] : data) as { status?: string | null } | null;
+    setNetworkStatus(row?.status?.trim() || "Monitoring Pending");
   }, [supabase]);
 
   /*
@@ -51,7 +71,7 @@ export default function HomePage() {
 
     const { data, error } = await supabase
         .from("coverage_regions")
-        .select("id,name")
+        .select("id,name,name_fr,name_ar")
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
@@ -77,7 +97,7 @@ export default function HomePage() {
     void supabase
         .from("plans")
         .select(
-            "id,name,speed_down_mbps,speed_up_mbps,monthly_price_usd"
+            "id,name,name_fr,name_ar,description,description_fr,description_ar,speed_down_mbps,speed_up_mbps,monthly_price_usd"
         )
         .eq("is_active", true)
         .order("monthly_price_usd", { ascending: true })
@@ -103,10 +123,9 @@ export default function HomePage() {
     void fetchNetworkStatus();
     void fetchCoverageAreas();
 
-    // Network health changes frequently; coverage does not. Poll only the
-    // status endpoint to avoid repeating a static coverage query every 15s.
     const interval = window.setInterval(() => {
       void fetchNetworkStatus();
+      void fetchCoverageAreas();
     }, 15000);
 
     const onFocus = () => {
@@ -139,20 +158,18 @@ export default function HomePage() {
               className={`badge badge-pulse page-badge home-status-${statusSlug(
                   networkStatus
               )}`}
-              role="status"
-              aria-live="polite"
           >
             Network Status: {networkStatus}
           </div>
 
           <h1>
-            Local internet service across North Bekaa
+            Fiber-fast internet across North Bekaa
           </h1>
 
           <p>
-            Centrum Service is a local internet provider for homes and businesses
-            across North Bekaa, with published plans, address-based coverage checks,
-            and a local support team.
+            Centrum Service keeps your home and business connected
+            with reliable, high-speed internet backed by a real
+            local support team — day and night.
           </p>
 
           <div className="cta-row">
@@ -171,13 +188,13 @@ export default function HomePage() {
           <div className="tech-stats">
 
             <div className="stat-item">
-              <span className="stat-value">Local</span>
-              <span className="stat-label">Support Team</span>
+              <span className="stat-value">99.9%</span>
+              <span className="stat-label">Uptime</span>
             </div>
 
             <div className="stat-item">
               <span className="stat-value">24/7</span>
-              <span className="stat-label">Portal Access</span>
+              <span className="stat-label">Support</span>
             </div>
 
             <div className="stat-item">
@@ -229,7 +246,7 @@ export default function HomePage() {
                 Speed
               </div>
 
-              <h2>High-Speed Internet</h2>
+              <h2>High-Speed Fiber</h2>
 
               <p>
                 Stream, game, and work from home without buffering,
@@ -302,7 +319,7 @@ export default function HomePage() {
 
                 {coverageAreas.map((area) => (
                     <li key={area.id}>
-                      {area.name}
+                      {localizedField(area as unknown as Record<string, unknown>, "name", locale)}
                     </li>
                 ))}
 
@@ -465,44 +482,34 @@ export default function HomePage() {
                         Service Plan
                       </div>
 
-                      <h2>{plan.name}</h2>
+                      <h2>{localizedField(plan as unknown as Record<string, unknown>, "name", locale)}</h2>
+                      {localizedField(plan as unknown as Record<string, unknown>, "description", locale) ? <p className="plan-description">{localizedField(plan as unknown as Record<string, unknown>, "description", locale)}</p> : null}
 
-                      <div
-                          className="tech-stats"
-                          style={{
-                            gap: "1rem",
-                            marginTop: "1rem",
-                            border: "none",
-                            paddingTop: "0",
-                          }}
-                      >
+                      {plan.speed_down_mbps !== null || plan.speed_up_mbps !== null ? (
+                        <div
+                            className="tech-stats"
+                            style={{
+                              gap: "1rem",
+                              marginTop: "1rem",
+                              border: "none",
+                              paddingTop: "0",
+                            }}
+                        >
+                          {plan.speed_down_mbps !== null ? (
+                            <div className="stat-item">
+                              <span className="stat-value">{plan.speed_down_mbps}</span>
+                              <span className="stat-label">Down Mbps</span>
+                            </div>
+                          ) : null}
 
-                        <div className="stat-item">
-
-                    <span className="stat-value">
-                      {plan.speed_down_mbps}
-                    </span>
-
-                          <span className="stat-label">
-                      Down Mbps
-                    </span>
-
+                          {plan.speed_up_mbps !== null ? (
+                            <div className="stat-item">
+                              <span className="stat-value">{plan.speed_up_mbps}</span>
+                              <span className="stat-label">Up Mbps</span>
+                            </div>
+                          ) : null}
                         </div>
-
-
-                        <div className="stat-item">
-
-                    <span className="stat-value">
-                      {plan.speed_up_mbps}
-                    </span>
-
-                          <span className="stat-label">
-                      Up Mbps
-                    </span>
-
-                        </div>
-
-                      </div>
+                      ) : null}
 
 
                       <p style={{ marginTop: "1rem" }}>

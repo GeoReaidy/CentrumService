@@ -13,7 +13,7 @@ import { locationMapUrl } from "@/components/LocationCapture";
 type Customer = { id: string; full_name: string | null; plan_id: number | null };
 type Plan = { id: number; name: string; monthly_price_usd: number };
 type Payment = { id: number; customer_id: string | null; amount_usd: number; paid_at: string; payment_method: string; reference: string | null; notes: string | null };
-type Announcement = { id: number; title: string; body: string; is_published: boolean; starts_at: string; ends_at: string | null; created_at: string };
+type Announcement = { id: number; title: string; title_fr: string | null; title_ar: string | null; body: string; body_fr: string | null; body_ar: string | null; is_published: boolean; starts_at: string; ends_at: string | null; created_at: string };
 type ServiceRequest = { id: number; customer_id: string; request_type: string; details: string; status: string; admin_note: string | null; created_at: string; location_latitude: number | null; location_longitude: number | null; location_accuracy_m: number | null; location_captured_at: string | null };
 type CustomizationRequest = { id: number; customer_id: string | null; full_name: string; email: string; phone: string | null; address: string | null; service_type: string; people_count: string | null; device_count: string | null; usage_types: string[]; budget_range: string | null; preferred_plan_name: string | null; current_provider: string | null; notes: string | null; status: "new" | "contacted" | "completed" | "closed"; email_sent_at: string | null; email_error: string | null; created_at: string; location_latitude: number | null; location_longitude: number | null; location_accuracy_m: number | null; location_captured_at: string | null };
 type CustomerLocation = { customer_id: string; latitude: number; longitude: number; accuracy_m: number | null; captured_at: string; updated_at: string };
@@ -54,7 +54,11 @@ export default function AdminOperationsPage() {
   const [paymentCustomerSearch, setPaymentCustomerSearch] = useState("");
 
   const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementTitleFr, setAnnouncementTitleFr] = useState("");
+  const [announcementTitleAr, setAnnouncementTitleAr] = useState("");
   const [announcementBody, setAnnouncementBody] = useState("");
+  const [announcementBodyFr, setAnnouncementBodyFr] = useState("");
+  const [announcementBodyAr, setAnnouncementBodyAr] = useState("");
   const [announcementPublished, setAnnouncementPublished] = useState(true);
   const [announcementEndsAt, setAnnouncementEndsAt] = useState("");
   const [savingAnnouncement, setSavingAnnouncement] = useState(false);
@@ -83,7 +87,7 @@ export default function AdminOperationsPage() {
       supabase.from("plans").select("id,name,monthly_price_usd").order("monthly_price_usd", { ascending: true }),
       supabase.from("payments").select("id,customer_id,amount_usd,paid_at,payment_method,reference,notes").order("paid_at", { ascending: false }).limit(500),
       supabase.from("payments").select("amount_usd,paid_at").gte("paid_at", monthStart).lt("paid_at", nextMonthStart).order("paid_at", { ascending: true }).limit(5000),
-      supabase.from("announcements").select("id,title,body,is_published,starts_at,ends_at,created_at").order("created_at", { ascending: false }).limit(30),
+      supabase.from("announcements").select("id,title,title_fr,title_ar,body,body_fr,body_ar,is_published,starts_at,ends_at,created_at").order("created_at", { ascending: false }).limit(30),
       supabase.from("service_requests").select("id,customer_id,request_type,details,status,admin_note,created_at,location_latitude,location_longitude,location_accuracy_m,location_captured_at").order("created_at", { ascending: false }).limit(200),
       supabase.from("service_customization_requests").select("id,customer_id,full_name,email,phone,address,service_type,people_count,device_count,usage_types,budget_range,preferred_plan_name,current_provider,notes,status,email_sent_at,email_error,created_at,location_latitude,location_longitude,location_accuracy_m,location_captured_at").order("created_at", { ascending: false }).limit(300),
       supabase.from("customer_locations").select("customer_id,latitude,longitude,accuracy_m,captured_at,updated_at").limit(1000),
@@ -222,7 +226,7 @@ export default function AdminOperationsPage() {
   const visibleAnnouncements = useMemo(() => {
     const query = announcementSearch.trim().toLowerCase();
     return [...announcements].filter((announcement) => {
-      const matchesSearch = !query || `${announcement.title} ${announcement.body}`.toLowerCase().includes(query);
+      const matchesSearch = !query || `${announcement.title} ${announcement.title_fr ?? ""} ${announcement.title_ar ?? ""} ${announcement.body} ${announcement.body_fr ?? ""} ${announcement.body_ar ?? ""}`.toLowerCase().includes(query);
       const matchesFilter = announcementFilter === "all" || (announcementFilter === "published" ? announcement.is_published : !announcement.is_published);
       return matchesSearch && matchesFilter;
     }).sort((a, b) => announcementSort === "oldest" ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime() : new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -315,14 +319,22 @@ export default function AdminOperationsPage() {
     setMessage("");
     const { error: insertError } = await supabase.from("announcements").insert({
       title: announcementTitle.trim(),
+      title_fr: announcementTitleFr.trim() || null,
+      title_ar: announcementTitleAr.trim() || null,
       body: announcementBody.trim(),
+      body_fr: announcementBodyFr.trim() || null,
+      body_ar: announcementBodyAr.trim() || null,
       is_published: announcementPublished,
       ends_at: announcementEndsAt ? new Date(`${announcementEndsAt}T23:59:59`).toISOString() : null,
     });
     if (insertError) setError(toFriendlyErrorMessage(insertError, "The announcement could not be created. Please try again."));
     else {
       setAnnouncementTitle("");
+      setAnnouncementTitleFr("");
+      setAnnouncementTitleAr("");
       setAnnouncementBody("");
+      setAnnouncementBodyFr("");
+      setAnnouncementBodyAr("");
       setAnnouncementEndsAt("");
       setAnnouncementPublished(true);
       setMessage("Announcement created.");
@@ -609,8 +621,19 @@ export default function AdminOperationsPage() {
         <h2>Announcements</h2>
         <p className="page-intro">Publish, hide, and manage messages shown to customers.</p>
         <form className="form-grid" onSubmit={addAnnouncement}>
+          <div className="badge card-badge">English · required</div>
           <label>Title<input value={announcementTitle} onChange={(event) => setAnnouncementTitle(event.target.value)} placeholder="e.g. Planned maintenance" required /></label>
           <label>Message<textarea rows={4} value={announcementBody} onChange={(event) => setAnnouncementBody(event.target.value)} placeholder="What customers need to know" required /></label>
+          <div className="badge card-badge">Translations · optional</div>
+          <div className="form-two-col">
+            <label>Title · French<input value={announcementTitleFr} onChange={(event) => setAnnouncementTitleFr(event.target.value)} placeholder="French title" /></label>
+            <label>Title · Arabic<input dir="rtl" value={announcementTitleAr} onChange={(event) => setAnnouncementTitleAr(event.target.value)} placeholder="العنوان بالعربية" /></label>
+          </div>
+          <div className="form-two-col">
+            <label>Message · French<textarea rows={4} value={announcementBodyFr} onChange={(event) => setAnnouncementBodyFr(event.target.value)} placeholder="French message" /></label>
+            <label>Message · Arabic<textarea dir="rtl" rows={4} value={announcementBodyAr} onChange={(event) => setAnnouncementBodyAr(event.target.value)} placeholder="الرسالة بالعربية" /></label>
+          </div>
+          <p className="field-note">Leave translations blank and customers will see the English announcement.</p>
           <div className="form-four-col">
             <label>End date<input type="date" value={announcementEndsAt} onChange={(event) => setAnnouncementEndsAt(event.target.value)} /></label>
             <label className="checkbox-label"><input type="checkbox" checked={announcementPublished} onChange={(event) => setAnnouncementPublished(event.target.checked)} /> Publish immediately</label>

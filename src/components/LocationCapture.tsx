@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./GoogleMapsLocationPicker.module.css";
+import { useLanguage } from "@/components/LanguageProvider";
+import { translateUiText } from "@/lib/ui-translations";
 
 export type CapturedLocation = {
   latitude: number;
@@ -93,6 +95,8 @@ function loadGoogleMaps(apiKey: string) {
 }
 
 function GoogleMapsPicker({ initialLocation, onCancel, onConfirm }: PickerProps) {
+  const { locale } = useLanguage();
+  const t = useCallback((source: string) => translateUiText(source, locale), [locale]);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const searchElementRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -213,8 +217,8 @@ function GoogleMapsPicker({ initialLocation, onCancel, onConfirm }: PickerProps)
             const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
             if (!active) return;
             autocompleteElement = new PlaceAutocompleteElement();
-            autocompleteElement.placeholder = "Search village, street or building";
-            autocompleteElement.setAttribute("aria-label", "Search location");
+            autocompleteElement.placeholder = t("Search village, street or building");
+            autocompleteElement.setAttribute("aria-label", t("Search location"));
             autocompleteElement.style.width = "100%";
             autocompleteHandler = async (event: any) => {
               try {
@@ -256,7 +260,7 @@ function GoogleMapsPicker({ initialLocation, onCancel, onConfirm }: PickerProps)
       if (autocompleteElement && autocompleteHandler) autocompleteElement.removeEventListener("gmp-select", autocompleteHandler);
       mapInstanceRef.current = null;
     };
-  }, [initialLocation, locateMe, syncSelectedFromMap]);
+  }, [initialLocation, locateMe, syncSelectedFromMap, t]);
 
   function confirmSelection() {
     syncSelectedFromMap();
@@ -277,40 +281,40 @@ function GoogleMapsPicker({ initialLocation, onCancel, onConfirm }: PickerProps)
       <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="centrum-location-picker-title">
         <header className={styles.header}>
           <div>
-            <span className="badge card-badge">Google Maps</span>
-            <h2 id="centrum-location-picker-title">Send your location</h2>
-            <p>Find your home or service point, then leave the pin on the correct building.</p>
+            <span className="badge card-badge">{t("Google Maps")}</span>
+            <h2 id="centrum-location-picker-title">{t("Send your location")}</h2>
+            <p>{t("Find your home or service point, then leave the pin on the correct building.")}</p>
           </div>
-          <button type="button" className={styles.closeButton} onClick={onCancel} aria-label="Close location picker">×</button>
+          <button type="button" className={styles.closeButton} onClick={onCancel} aria-label={t("Close location picker")}>×</button>
         </header>
 
         <div className={styles.searchArea}>
           <div ref={searchElementRef} className={styles.searchHost} />
           <button type="button" className={`btn btn-secondary btn-compact ${styles.myLocationButton}`} onClick={() => locateMe(false)} disabled={mapLoading || locating || Boolean(mapError)}>
-            {locating ? "Finding you..." : "Use my current location"}
+            {t(locating ? "Finding you..." : "Use my current location")}
           </button>
         </div>
 
         <div className={styles.mapFrame}>
-          <div ref={mapElementRef} className={styles.map} aria-label="Google Map location picker" />
+          <div ref={mapElementRef} className={styles.map} aria-label={t("Google Map location picker")} />
           {!mapError ? (
             <div className={styles.centerPin} aria-hidden="true">
               <span className={styles.pinHead} />
               <span className={styles.pinPoint} />
             </div>
           ) : null}
-          {mapLoading ? <div className={styles.mapState}>Loading Google Maps...</div> : null}
-          {mapError ? <div className={`${styles.mapState} ${styles.mapError}`}><strong>Map unavailable</strong><span>{mapError}</span></div> : null}
+          {mapLoading ? <div className={styles.mapState}>{t("Loading Google Maps...")}</div> : null}
+          {mapError ? <div className={`${styles.mapState} ${styles.mapError}`}><strong>{t("Map unavailable")}</strong><span>{t(mapError)}</span></div> : null}
         </div>
 
         <div className={styles.helperRow}>
           <span className={styles.helperIcon} aria-hidden="true">⌖</span>
-          <p>{helperMessage}</p>
+          <p>{t(helperMessage)}</p>
         </div>
 
         <footer className={styles.actions}>
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-          <button type="button" className="btn btn-primary" onClick={confirmSelection} disabled={mapLoading || Boolean(mapError) || !hasSelection}>Send this location</button>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>{t("Cancel")}</button>
+          <button type="button" className="btn btn-primary" onClick={confirmSelection} disabled={mapLoading || Boolean(mapError) || !hasSelection}>{t("Send this location")}</button>
         </footer>
       </section>
     </div>
@@ -327,6 +331,8 @@ export function LocationCapture({
   disabled = false,
   allowClear = true,
 }: LocationCaptureProps) {
+  const { locale } = useLanguage();
+  const t = useCallback((source: string) => translateUiText(source, locale), [locale]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const locationHint = useMemo(() => {
@@ -339,28 +345,28 @@ export function LocationCapture({
     <div className={`location-capture ${styles.captureShell}`}>
       <div className="location-capture-heading">
         <div>
-          <strong>{title}</strong>
-          <p>{description}</p>
+          <strong>{t(title)}</strong>
+          <p>{t(description)}</p>
         </div>
-        {value ? <span className="status-pill status-active">Location ready</span> : <span className="status-pill status-inactive">Optional</span>}
+        {value ? <span className="status-pill status-active">{t("Location ready")}</span> : <span className="status-pill status-inactive">{t("Optional")}</span>}
       </div>
 
       <div className={value ? styles.readyState : styles.emptyState}>
         <span className={styles.stateIcon} aria-hidden="true">{value ? "✓" : "⌖"}</span>
         <div>
-          <strong>{value ? "Location uploaded" : "No location uploaded yet"}</strong>
-          <small>{locationHint}</small>
+          <strong>{t(value ? "Location uploaded" : "No location uploaded yet")}</strong>
+          <small>{t(locationHint)}</small>
         </div>
       </div>
 
       <div className="location-capture-actions">
         <button type="button" className={`btn btn-primary ${styles.uploadButton}`} disabled={disabled} onClick={() => setPickerOpen(true)}>
-          {value ? "Change location" : "Upload location"}
+          {t(value ? "Change location" : "Upload location")}
         </button>
         {preset && !isSameLocation(value, preset) ? (
-          <button type="button" className="btn btn-secondary" disabled={disabled} onClick={() => onChange(preset)}>{presetLabel}</button>
+          <button type="button" className="btn btn-secondary" disabled={disabled} onClick={() => onChange(preset)}>{t(presetLabel)}</button>
         ) : null}
-        {allowClear && value ? <button type="button" className="btn btn-secondary" disabled={disabled} onClick={() => onChange(null)}>Remove location</button> : null}
+        {allowClear && value ? <button type="button" className="btn btn-secondary" disabled={disabled} onClick={() => onChange(null)}>{t("Remove location")}</button> : null}
       </div>
 
       {pickerOpen ? (

@@ -4,10 +4,14 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { LocationCapture, type CapturedLocation } from "@/components/LocationCapture";
+import { useLanguage } from "@/components/LanguageProvider";
+import { localizedField } from "@/lib/i18n";
 
 export type CustomizationPlan = {
   id: number;
   name: string;
+  name_fr?: string | null;
+  name_ar?: string | null;
   monthly_price_usd?: number;
 };
 
@@ -50,6 +54,7 @@ export function ServiceCustomizationWizard({
   onSubmitted,
 }: ServiceCustomizationWizardProps) {
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(openInitially);
   const [step, setStep] = useState(0);
@@ -76,18 +81,28 @@ export function ServiceCustomizationWizard({
   }, []);
 
   useEffect(() => {
-    if (!open || providedPlans?.length || !supabase || plans.length) return;
+    if (!open || providedPlans?.length || !supabase) return;
     let active = true;
     void supabase
       .from("plans")
-      .select("id,name,monthly_price_usd")
+      .select("id,name,name_fr,name_ar,monthly_price_usd")
       .eq("is_active", true)
       .order("monthly_price_usd", { ascending: true })
       .then(({ data }) => {
-        if (active) setPlans((data as CustomizationPlan[] | null) ?? []);
+        if (active) {
+          const rows = (data as CustomizationPlan[] | null) ?? [];
+          setPlans(rows.map((plan) => ({
+            ...plan,
+            name: localizedField(plan as unknown as Record<string, unknown>, "name", locale),
+          })));
+        }
       });
     return () => { active = false; };
-  }, [open, plans.length, providedPlans, supabase]);
+  }, [locale, open, providedPlans, supabase]);
+
+  useEffect(() => {
+    if (providedPlans?.length) setPlans(providedPlans);
+  }, [providedPlans]);
 
   useEffect(() => {
     if (!open) return;

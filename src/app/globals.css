@@ -7642,3 +7642,451 @@ textarea {
         min-height: 44px;
     }
 }
+
+
+/* ==========================================================================
+   Simple customer portal + portal experience selector + quieter plan cards
+   ========================================================================== */
+
+.plan-description {
+    margin: 0.55rem 0 0;
+    color: var(--muted);
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-plan-description {
+    max-width: 780px;
+}
+
+.plan-description-counter {
+    display: block;
+    margin-top: 0.35rem;
+    text-align: right;
+}
+
+.portal-simple-page {
+    display: grid;
+    gap: 1rem;
+}
+
+.portal-simple-header {
+    margin-bottom: 0.15rem;
+}
+
+.portal-simple-stack {
+    display: grid;
+    gap: 1rem;
+}
+
+.portal-simple-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.portal-simple-summary-card {
+    min-width: 0;
+}
+
+.portal-simple-plan-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.9rem;
+}
+
+.portal-simple-plan-facts span {
+    padding: 0.48rem 0.62rem;
+    border: 1px solid rgba(93, 126, 207, 0.2);
+    border-radius: 10px;
+    background: rgba(8, 18, 38, 0.52);
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
+.portal-simple-plan-facts strong {
+    color: var(--text);
+}
+
+.portal-simple-actions-card,
+.portal-simple-settings-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.portal-simple-action-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+    min-width: min(100%, 660px);
+}
+
+.portal-simple-action-grid .btn {
+    width: 100%;
+}
+
+.portal-simple-two-col {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.portal-simple-primary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 48px;
+    margin-top: 0.8rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgba(91, 126, 211, 0.2);
+    border-radius: 12px;
+    background: rgba(7, 16, 34, 0.46);
+    text-decoration: none;
+}
+
+.portal-simple-request-preview {
+    margin: 0.8rem 0;
+}
+
+.portal-simple-request-card,
+.portal-location-card {
+    scroll-margin-top: 1.25rem;
+}
+
+.portal-simple-announcements {
+    margin-top: 0.75rem;
+}
+
+.portal-mode-picker {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.portal-mode-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 88px;
+    padding: 0.95rem;
+    border: 1px solid rgba(91, 126, 211, 0.22);
+    border-radius: 14px;
+    background: rgba(7, 16, 34, 0.52);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.portal-mode-option span {
+    display: grid;
+    gap: 0.3rem;
+}
+
+.portal-mode-option strong {
+    font-size: 1rem;
+}
+
+.portal-mode-option small {
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.portal-mode-option b {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.portal-mode-option.is-selected {
+    border-color: rgba(82, 135, 255, 0.75);
+    background: rgba(47, 108, 255, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(82, 135, 255, 0.18);
+}
+
+.portal-mode-option.is-selected b {
+    color: var(--text);
+}
+
+.portal-mode-option:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+@media (max-width: 900px) {
+    .portal-simple-summary-grid,
+    .portal-simple-two-col {
+        grid-template-columns: 1fr;
+    }
+
+    .portal-simple-actions-card,
+    .portal-simple-settings-card {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .portal-simple-action-grid {
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .portal-simple-page {
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+
+    .portal-simple-page .portal-console-header {
+        gap: 0.8rem;
+    }
+
+    .portal-simple-page .portal-console-header-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .portal-simple-summary-grid,
+    .portal-simple-two-col,
+    .portal-mode-picker {
+        grid-template-columns: 1fr;
+    }
+
+    .portal-simple-action-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .portal-simple-action-grid .btn {
+        min-height: 46px;
+    }
+
+    .portal-simple-primary-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .portal-mode-option {
+        min-height: 82px;
+    }
+
+    .plan-description {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+}
+
+/* Multilingual UI --------------------------------------------------------- */
+.language-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.24rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(8, 18, 38, 0.72);
+  direction: ltr;
+}
+
+.language-selector button {
+  min-width: 2.25rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.55rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.language-selector button:hover,
+.language-selector button:focus-visible {
+  color: var(--text);
+  background: rgba(104, 151, 255, 0.14);
+  outline: none;
+}
+
+.language-selector button:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.language-selector button.is-active {
+  color: #fff;
+  background: var(--accent);
+}
+
+.language-selector-compact {
+  margin-inline-start: 0.35rem;
+}
+
+/* The dashboard-choice UI remains a full-width stacked selector. */
+.portal-mode-picker {
+  grid-template-columns: 1fr !important;
+}
+
+/* Arabic reads RTL without flipping the established dashboard/admin layout. */
+html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .nav-wrap,
+html[dir="rtl"] .admin-console-shell,
+html[dir="rtl"] .portal-console-shell,
+html[dir="rtl"] .manager-console-shell {
+  direction: ltr;
+}
+
+html[dir="rtl"] .main-nav,
+html[dir="rtl"] .admin-console-sidebar,
+html[dir="rtl"] .portal-console-sidebar,
+html[dir="rtl"] .manager-console-sidebar,
+html[dir="rtl"] .admin-console-main,
+html[dir="rtl"] .portal-console-main,
+html[dir="rtl"] .manager-console-main,
+html[dir="rtl"] .content,
+html[dir="rtl"] .site-footer {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="password"],
+html[dir="rtl"] input[type="url"],
+html[dir="rtl"] input[type="tel"],
+html[dir="rtl"] .stat-value,
+html[dir="rtl"] code,
+html[dir="rtl"] pre,
+html[dir="rtl"] .language-selector {
+  direction: ltr;
+}
+
+html[dir="rtl"] .portal-feed-heading,
+html[dir="rtl"] .section-heading-row,
+html[dir="rtl"] .admin-workspace-heading,
+html[dir="rtl"] .portal-console-header,
+html[dir="rtl"] .dashboard-detail-list,
+html[dir="rtl"] .plan-name-row,
+html[dir="rtl"] .plan-meta {
+  text-align: right;
+}
+
+@media (max-width: 860px) {
+  .language-selector-compact {
+    display: none;
+  }
+}
+
+/* Keep established visual column order in RTL; only the content inside each
+   tile/card/form reads right-to-left. */
+html[dir="rtl"] .main-nav,
+html[dir="rtl"] .section-grid,
+html[dir="rtl"] .auth-shell,
+html[dir="rtl"] .contact-main-grid,
+html[dir="rtl"] .contact-method-grid,
+html[dir="rtl"] .coverage-summary-grid,
+html[dir="rtl"] .coverage-area-grid,
+html[dir="rtl"] .coverage-info-grid,
+html[dir="rtl"] .portal-simple-summary-grid,
+html[dir="rtl"] .portal-billing-summary-grid,
+html[dir="rtl"] .portal-service-summary-grid,
+html[dir="rtl"] .form-two-col,
+html[dir="rtl"] .form-three-col,
+html[dir="rtl"] .form-four-col {
+  direction: ltr;
+}
+
+html[dir="rtl"] .main-nav > a,
+html[dir="rtl"] .section-grid > *,
+html[dir="rtl"] .auth-shell > *,
+html[dir="rtl"] .contact-main-grid > *,
+html[dir="rtl"] .contact-method-grid > *,
+html[dir="rtl"] .coverage-summary-grid > *,
+html[dir="rtl"] .coverage-area-grid > *,
+html[dir="rtl"] .coverage-info-grid > *,
+html[dir="rtl"] .portal-simple-summary-grid > *,
+html[dir="rtl"] .portal-billing-summary-grid > *,
+html[dir="rtl"] .portal-service-summary-grid > *,
+html[dir="rtl"] .form-two-col > *,
+html[dir="rtl"] .form-three-col > *,
+html[dir="rtl"] .form-four-col > * {
+  direction: rtl;
+  text-align: right;
+}
+
+/* ==========================================================================
+   Simple portal action layout — multilingual-safe
+   French and Arabic action labels are naturally longer than English. Keep the
+   actions on their own row and allow button labels to wrap instead of clipping.
+   ========================================================================== */
+.portal-simple-actions-card {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 1rem;
+}
+
+.portal-simple-actions-card > div:first-child {
+    min-width: 0;
+    max-width: 720px;
+}
+
+.portal-simple-action-grid {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.portal-simple-action-grid .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    padding: 0.75rem 1rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    text-align: center;
+    line-height: 1.25;
+}
+
+/* Keep the two header controls from squeezing one another in longer locales. */
+.portal-simple-page .portal-console-header-actions {
+    flex-wrap: wrap;
+}
+
+.portal-simple-page .portal-console-header-actions .btn {
+    min-width: max-content;
+}
+
+@media (max-width: 640px) {
+    .portal-simple-action-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .portal-simple-action-grid .btn {
+        min-height: 48px;
+    }
+
+    .portal-simple-page .portal-console-header-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .portal-simple-page .portal-console-header-actions .btn {
+        width: 100%;
+        min-width: 0;
+        white-space: normal;
+    }
+}

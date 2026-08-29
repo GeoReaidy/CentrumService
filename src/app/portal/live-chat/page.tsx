@@ -5,9 +5,11 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveUserRole, roleHome } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
+import { useLanguage } from "@/components/LanguageProvider";
+import { localizedDateLocale } from "@/lib/i18n";
+import { translateUiText } from "@/lib/ui-translations";
 
 type ChatSession = {
   id: string;
@@ -29,6 +31,7 @@ type ChatMessage = {
 export default function CustomerLiveChatPage() {
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
   const [account, setAccount] = useState<User | null>(null);
   const [session, setSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -114,14 +117,6 @@ export default function CustomerLiveChatPage() {
       if (!mounted) return;
       if (authError || !data.user) {
         router.replace("/portal/login");
-        return;
-      }
-
-      const role = await resolveUserRole(supabase!, data.user);
-      if (!mounted) return;
-      if (role === "admin" || role === "manager") {
-        setLoading(false);
-        router.replace(roleHome(role));
         return;
       }
 
@@ -225,7 +220,7 @@ export default function CustomerLiveChatPage() {
   }
 
   async function closeChat() {
-    if (!supabase || !session || !window.confirm("End this live chat? You can start a new one later.")) return;
+    if (!supabase || !session || !window.confirm(translateUiText("End this live chat? You can start a new one later.", locale))) return;
     const { error: closeError } = await supabase.from("live_chat_sessions").update({ status: "closed" }).eq("id", session.id);
     if (closeError) {
       setError(toFriendlyErrorMessage(closeError, "The chat could not be closed. Please try again."));
@@ -302,7 +297,7 @@ export default function CustomerLiveChatPage() {
               <div className={`chat-message ${ownMessage ? "chat-message-own" : "chat-message-other"}`} key={item.id}>
                 <div className="chat-message-meta">
                   <strong>{ownMessage ? "You" : "Centrum Support"}</strong>
-                  <span>{new Date(item.created_at).toLocaleString()}</span>
+                  <span>{new Date(item.created_at).toLocaleString(localizedDateLocale(locale))}</span>
                 </div>
                 <p>{item.message}</p>
               </div>

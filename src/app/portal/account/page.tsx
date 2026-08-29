@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { resolveUserRole, roleHome } from "@/lib/supabase-role";
-import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
+import { resolveIsAdmin } from "@/lib/supabase-role";
 
 export default function PortalAccountPage() {
   const router = useRouter();
@@ -17,6 +16,10 @@ export default function PortalAccountPage() {
   const [confirmation, setConfirmation] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [portalMode, setPortalMode] = useState<"simple" | "advanced">("simple");
+  const [portalModeSaving, setPortalModeSaving] = useState(false);
+  const [portalModeMessage, setPortalModeMessage] = useState("");
+  const [portalModeError, setPortalModeError] = useState("");
 
   useEffect(() => {
     if (!supabase) {
@@ -38,13 +41,28 @@ export default function PortalAccountPage() {
         return;
       }
 
-      const role = await resolveUserRole(client, data.user);
+      const admin = await resolveIsAdmin(client, data.user);
       if (!mounted) return;
 
-      if (role === "admin" || role === "manager") {
+      if (admin) {
         setIsLoading(false);
-        router.replace(roleHome(role));
+        router.replace("/admin");
         return;
+      }
+
+      const { data: preference, error: preferenceError } = await client
+        .from("customer_portal_preferences")
+        .select("portal_mode")
+        .eq("customer_id", data.user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (preferenceError) {
+        console.error("Portal preference load failed", preferenceError);
+        setPortalModeError("Your portal display preference could not be loaded.");
+      } else {
+        setPortalMode(preference?.portal_mode === "advanced" ? "advanced" : "simple");
       }
 
       setAccount(data.user);
@@ -57,6 +75,29 @@ export default function PortalAccountPage() {
       mounted = false;
     };
   }, [router, supabase]);
+
+  async function savePortalMode(nextMode: "simple" | "advanced") {
+    if (!supabase || !account || portalModeSaving || nextMode === portalMode) return;
+    setPortalModeSaving(true);
+    setPortalModeError("");
+    setPortalModeMessage("");
+
+    const { error } = await supabase
+      .from("customer_portal_preferences")
+      .upsert({ customer_id: account.id, portal_mode: nextMode }, { onConflict: "customer_id" });
+
+    if (error) {
+      console.error("Portal preference save failed", error);
+      setPortalModeError("We couldn't save your portal preference right now.");
+    } else {
+      setPortalMode(nextMode);
+      setPortalModeMessage(nextMode === "simple"
+        ? "Simple mode is now your default dashboard."
+        : "Advanced mode is now your default dashboard.");
+    }
+
+    setPortalModeSaving(false);
+  }
 
   async function deleteAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -148,7 +189,52 @@ export default function PortalAccountPage() {
           </div>
         </article>
 
-        <NotificationPreferencesCard userId={account.id} />
+        <article className="card portal-mode-settings-card">
+          <div className="badge card-badge">Portal Experience</div>
+          <h2>Choose your dashboard</h2>
+          <p className="page-intro">
+            Simple mode keeps the everyday tools together on one page. Advanced mode restores the full customer workspace menu.
+          </p>
+
+          <div
+            className="portal-mode-picker"
+            role="group"
+            aria-label="Portal experience"
+            style={{ gridTemplateColumns: "1fr" }}
+          >
+            <button
+              type="button"
+              className={`portal-mode-option ${portalMode === "simple" ? "is-selected" : ""}`}
+              style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", width: "100%" }}
+              onClick={() => void savePortalMode("simple")}
+              disabled={portalModeSaving}
+            >
+              <span style={{ minWidth: 0 }}>
+                <strong>Simple</strong>
+                <small>Recommended · one-page dashboard with the essentials.</small>
+              </span>
+              <b style={{ whiteSpace: "nowrap" }}>{portalMode === "simple" ? "Selected" : "Use Simple"}</b>
+            </button>
+
+            <button
+              type="button"
+              className={`portal-mode-option ${portalMode === "advanced" ? "is-selected" : ""}`}
+              style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", width: "100%" }}
+              onClick={() => void savePortalMode("advanced")}
+              disabled={portalModeSaving}
+            >
+              <span style={{ minWidth: 0 }}>
+                <strong>Advanced</strong>
+                <small>Shows the full Service, Billing, Support and Account workspaces.</small>
+              </span>
+              <b style={{ whiteSpace: "nowrap" }}>{portalMode === "advanced" ? "Selected" : "Use Advanced"}</b>
+            </button>
+          </div>
+
+          {portalModeSaving ? <p className="field-note">Saving your preference...</p> : null}
+          {portalModeError ? <p className="form-alert form-alert-error">{portalModeError}</p> : null}
+          {portalModeMessage ? <p className="form-alert form-alert-success">{portalModeMessage}</p> : null}
+        </article>
 
         <article
           className="card"

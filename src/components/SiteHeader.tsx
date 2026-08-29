@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import styles from "./SiteHeader.module.css";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 const links = [
   { href: "/", label: "Home" },
@@ -65,6 +66,7 @@ export function SiteHeader() {
           aria-label="Main navigation"
         >
           {renderLinks()}
+          <LanguageSelector compact />
         </nav>
 
         <details className={styles.mobileNav}>
@@ -79,6 +81,7 @@ export function SiteHeader() {
 
           <nav className={styles.mobileNavPanel} aria-label="Mobile navigation">
             {renderLinks()}
+            <LanguageSelector />
           </nav>
         </details>
       </div>

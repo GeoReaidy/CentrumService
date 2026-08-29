@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RealtimePostgresChangesPayload, User } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { resolveUserRole, type CentrumRole } from '@/lib/supabase-role';
+import { resolveIsAdmin } from '@/lib/supabase-role';
+import { useLanguage } from '@/components/LanguageProvider';
+import { localizedDateLocale, localizedField } from '@/lib/i18n';
 
 export type NotificationCategory = 'tickets' | 'announcements' | 'service_requests' | 'customization';
 
@@ -16,6 +18,16 @@ export type NotificationPreferences = {
   service_request_notifications: boolean;
   customization_notifications: boolean;
   reminder_popups: boolean;
+};
+
+type LocalizedAnnouncement = {
+  id: number;
+  title: string;
+  title_fr: string | null;
+  title_ar: string | null;
+  body: string;
+  body_fr: string | null;
+  body_ar: string | null;
 };
 
 type NotificationRow = {
@@ -68,7 +80,7 @@ function categoryLabel(category: NotificationCategory) {
   return 'Customization';
 }
 
-function formatNotificationTime(value: string) {
+function formatNotificationTime(value: string, locale: 'en' | 'fr' | 'ar') {
   const date = new Date(value);
   const diff = Date.now() - date.getTime();
   const minute = 60_000;
@@ -77,16 +89,18 @@ function formatNotificationTime(value: string) {
   if (diff >= 0 && diff < minute) return 'Just now';
   if (diff >= 0 && diff < hour) return `${Math.max(1, Math.floor(diff / minute))}m ago`;
   if (diff >= 0 && diff < day) return `${Math.floor(diff / hour)}h ago`;
-  return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat(localizedDateLocale(locale), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 export function NotificationCenter() {
   const router = useRouter();
   const supabase = getSupabaseBrowserClient();
+  const { locale } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<CentrumRole>("customer");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [preferences, setPreferences] = useState<NotificationPreferences>(() => defaultNotificationPreferences());
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [announcementContent, setAnnouncementContent] = useState<Record<string, LocalizedAnnouncement>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [snoozedUntil, setSnoozedUntil] = useState<Record<number, number>>({});
   const [clock, setClock] = useState(Date.now());
@@ -109,6 +123,35 @@ export function NotificationCenter() {
     setPreferences((data as NotificationPreferences | null) ?? defaultNotificationPreferences(userId));
   }, [supabase]);
 
+  const fetchAnnouncementContent = useCallback(async (rows: NotificationRow[]) => {
+    if (!supabase) return;
+    const ids = Array.from(new Set(
+      rows
+        .filter((item) => item.category === 'announcements' && item.source_id)
+        .map((item) => Number(item.source_id))
+        .filter((id) => Number.isInteger(id)),
+    ));
+
+    if (!ids.length) {
+      setAnnouncementContent({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('id,title,title_fr,title_ar,body,body_fr,body_ar')
+      .in('id', ids);
+
+    if (error) {
+      console.error('Localized announcement notification load failed', error);
+      return;
+    }
+
+    const next: Record<string, LocalizedAnnouncement> = {};
+    for (const row of (data as LocalizedAnnouncement[] | null) ?? []) next[String(row.id)] = row;
+    setAnnouncementContent(next);
+  }, [supabase]);
+
   const fetchNotifications = useCallback(async (userId: string) => {
     if (!supabase) return;
     const { data, error } = await supabase
@@ -125,8 +168,10 @@ export function NotificationCenter() {
     }
 
     setLoadError('');
-    setNotifications((data as NotificationRow[] | null) ?? []);
-  }, [supabase]);
+    const rows = (data as NotificationRow[] | null) ?? [];
+    setNotifications(rows);
+    await fetchAnnouncementContent(rows);
+  }, [fetchAnnouncementContent, supabase]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -142,7 +187,7 @@ export function NotificationCenter() {
       }
 
       setUser(data.user);
-      setRole(await resolveUserRole(supabase!, data.user));
+      setIsAdmin(await resolveIsAdmin(supabase!, data.user));
       await Promise.all([fetchPreferences(data.user.id), fetchNotifications(data.user.id)]);
     }
 
@@ -154,11 +199,11 @@ export function NotificationCenter() {
       setUser(nextUser);
       setDrawerOpen(false);
       if (!nextUser) {
-        setRole("customer");
+        setIsAdmin(false);
         setNotifications([]);
         return;
       }
-      setRole(await resolveUserRole(supabase, nextUser));
+      setIsAdmin(await resolveIsAdmin(supabase, nextUser));
       await Promise.all([fetchPreferences(nextUser.id), fetchNotifications(nextUser.id)]);
     });
 
@@ -185,6 +230,7 @@ export function NotificationCenter() {
           const incoming = payload.new as NotificationRow;
           if (!incoming?.id) return;
           setNotifications((current) => mergeNotification(current, incoming));
+          if (incoming.category === 'announcements') void fetchAnnouncementContent([incoming]);
           setClock(Date.now());
         },
       )
@@ -204,7 +250,7 @@ export function NotificationCenter() {
       window.removeEventListener('focus', refresh);
       void supabase.removeChannel(channel);
     };
-  }, [fetchNotifications, fetchPreferences, supabase, user]);
+  }, [fetchAnnouncementContent, fetchNotifications, fetchPreferences, supabase, user]);
 
   const visibleNotifications = useMemo(
     () => notifications.filter((item) => categoryEnabled(preferences, item.category)),
@@ -220,6 +266,17 @@ export function NotificationCenter() {
     if (!preferences.in_app_enabled || !preferences.reminder_popups) return null;
     return unreadNotifications.find((item) => (snoozedUntil[item.id] ?? 0) <= clock) ?? null;
   }, [clock, preferences.in_app_enabled, preferences.reminder_popups, snoozedUntil, unreadNotifications]);
+
+  function localizedNotification(notification: NotificationRow) {
+    const announcement = notification.category === 'announcements' && notification.source_id
+      ? announcementContent[notification.source_id]
+      : null;
+    if (!announcement) return { title: notification.title, body: notification.body };
+    return {
+      title: localizedField(announcement as unknown as Record<string, unknown>, 'title', locale) || notification.title,
+      body: localizedField(announcement as unknown as Record<string, unknown>, 'body', locale) || notification.body,
+    };
+  }
 
   async function markRead(notification: NotificationRow) {
     if (!supabase || notification.read_at) return;
@@ -288,13 +345,15 @@ export function NotificationCenter() {
 
           <div className="notification-drawer-actions">
             <button type="button" className="btn btn-secondary btn-compact" onClick={() => void markAllRead()} disabled={!unreadNotifications.length}>Mark all read</button>
-            <button type="button" className="btn btn-secondary btn-compact" onClick={() => { setDrawerOpen(false); router.push(role === 'admin' ? '/admin/account#notifications' : role === 'manager' ? '/manager#notifications' : '/portal/account#notifications'); }}>Settings</button>
+            <button type="button" className="btn btn-secondary btn-compact" onClick={() => { setDrawerOpen(false); router.push(isAdmin ? '/admin/account#notifications' : '/portal/account#notifications'); }}>Settings</button>
           </div>
 
           {loadError ? <p className="form-alert form-alert-error">{loadError}</p> : null}
 
           <div className="notification-list">
-            {visibleNotifications.length ? visibleNotifications.map((notification) => (
+            {visibleNotifications.length ? visibleNotifications.map((notification) => {
+              const copy = localizedNotification(notification);
+              return (
               <button
                 type="button"
                 className={`notification-item ${notification.read_at ? 'is-read' : 'is-unread'}`}
@@ -303,12 +362,13 @@ export function NotificationCenter() {
               >
                 <span className="notification-item-topline">
                   <span>{categoryLabel(notification.category)}</span>
-                  <time dateTime={notification.created_at}>{formatNotificationTime(notification.created_at)}</time>
+                  <time dateTime={notification.created_at}>{formatNotificationTime(notification.created_at, locale)}</time>
                 </span>
-                <strong>{notification.title}</strong>
-                {notification.body ? <span className="notification-item-body">{notification.body}</span> : null}
+                <strong>{copy.title}</strong>
+                {copy.body ? <span className="notification-item-body">{copy.body}</span> : null}
               </button>
-            )) : <p className="empty-state">No notifications yet.</p>}
+              );
+            }) : <p className="empty-state">No notifications yet.</p>}
           </div>
         </section>
       ) : null}
@@ -319,8 +379,8 @@ export function NotificationCenter() {
             <span className="badge card-badge">Unread · {categoryLabel(reminder.category)}</span>
             <button type="button" className="notification-close" onClick={() => remindLater(reminder)} aria-label="Remind me later">×</button>
           </div>
-          <strong>{reminder.title}</strong>
-          {reminder.body ? <p>{reminder.body}</p> : null}
+          <strong>{localizedNotification(reminder).title}</strong>
+          {localizedNotification(reminder).body ? <p>{localizedNotification(reminder).body}</p> : null}
           <div className="notification-reminder-actions">
             <button type="button" className="btn btn-primary btn-compact" onClick={() => void openNotification(reminder)}>Open</button>
             <button type="button" className="btn btn-secondary btn-compact" onClick={() => void markRead(reminder)}>Mark read</button>
