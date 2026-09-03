@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import { useLanguage } from "@/components/LanguageProvider";
 import { localizedDateLocale } from "@/lib/i18n";
@@ -245,7 +246,7 @@ export default function CustomerLiveChatPage() {
     setLoading(false);
   }
 
-  if (loading) return <section className="live-chat-page"><AsyncState kind="loading" eyebrow="Centrum Live Support" title="Connecting to support" message="Opening your conversation and loading recent messages." /></section>;
+  if (loading) return <CentrumLoadingScreen context="Centrum Live Support" message="Opening your conversation and loading recent messages." />;
   if (!supabase) return <section className="live-chat-page"><AsyncState kind="error" eyebrow="Live Support" title="Live chat is temporarily unavailable" message="Centrum couldn't connect to live support right now." href="/contact" hrefLabel="Contact Centrum" /></section>;
 
   return (

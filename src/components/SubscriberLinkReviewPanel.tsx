@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { CentrumInlineLoading } from '@/components/CentrumLoading';
 
 type RequestRow = { id: number; requester_id: string; full_name: string; phone: string; customer_reference: string; customer_note: string | null; status: string; staff_note: string | null; created_at: string };
 
@@ -38,7 +39,7 @@ export function SubscriberLinkReviewPanel() {
       <div className="badge card-badge">Staff Verification</div>
       <h2>Subscriber Link Requests</h2>
       <p className="page-intro">Verify the customer against Centrum records before approving. The submitted code and phone number are identifiers, not proof by themselves.</p>
-      {loading ? <p className="field-note">Loading requests...</p> : requests.length ? (
+      {loading ? <p className="field-note"><CentrumInlineLoading message="Loading requests..." /></p> : requests.length ? (
         <div className="review-list">
           {requests.map((request) => <section className="review-request" key={request.id}>
             <div className="review-request-heading"><strong>#{request.id} · {request.full_name}</strong><span className={`badge ${request.status === 'approved' ? 'status-active' : request.status === 'rejected' ? 'status-inactive' : ''}`}>{request.status}</span></div>

@@ -10,6 +10,7 @@ import { deriveCustomerNodeState, type ProbeStatus } from "@/lib/network-monitor
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
 import { LocationCapture, type CapturedLocation } from "@/components/LocationCapture";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import { useLanguage } from "@/components/LanguageProvider";
 import { localizedDateLocale, localizedField, type Locale } from "@/lib/i18n";
@@ -503,7 +504,7 @@ export default function PortalDashboardPage() {
     setIsSubmittingRequest(false);
   }
 
-  if (isLoading) return <section className="portal-dashboard"><AsyncState kind="loading" eyebrow="Customer Portal" title="Loading your dashboard" message="Getting your account, billing, tickets, requests, and live network status." /></section>;
+  if (isLoading) return <CentrumLoadingScreen context="Customer Portal" message="Loading your account, billing, support, and network status." />;
   if (!supabase) return <section className="portal-dashboard"><AsyncState kind="error" eyebrow="Portal Unavailable" title="Account services are temporarily unavailable" message="Centrum couldn't connect to the account service. Please try again shortly." href="/contact" hrefLabel="Contact Centrum" /></section>;
   if (!account) {
     return (

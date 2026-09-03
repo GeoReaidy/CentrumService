@@ -15,6 +15,7 @@ import {
   type ProbeStatus,
 } from "@/lib/network-monitoring";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { MonitorAgentsPanel } from "@/components/MonitorAgentsPanel";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import { locationMapUrl } from "@/components/LocationCapture";
@@ -987,7 +988,7 @@ export default function AdminPage() {
     router.refresh();
   }
 
-  if (isLoading) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Administration" title="Opening the admin dashboard" message="Checking your access and loading Centrum operations data." /></section>;
+  if (isLoading) return <CentrumLoadingScreen context="Admin Console" message="Checking your access and loading Centrum operations data." />;
   if (!supabase) return <section><h1>Admin Dashboard</h1><p className="page-intro">Supabase is not configured yet.</p></section>;
   if (!account) return <section><h1>Admin Dashboard</h1><p className="page-intro">Redirecting...</p></section>;
 

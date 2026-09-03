@@ -9,6 +9,7 @@ import { resolveIsAdmin } from "@/lib/supabase-role";
 import { ConnectedAccountsCard } from "@/components/ConnectedAccountsCard";
 import { SecurityDevicesCard } from "@/components/SecurityDevicesCard";
 import { SubscriberLinkCard } from "@/components/SubscriberLinkCard";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 
 export default function PortalAccountPage() {
   const router = useRouter();
@@ -154,12 +155,7 @@ export default function PortalAccountPage() {
   }
 
   if (isLoading) {
-    return (
-      <section>
-        <h1>Account Settings</h1>
-        <p className="page-intro">Loading your account...</p>
-      </section>
-    );
+    return <CentrumLoadingScreen context="Portal Account" message="Loading your account settings securely." />;
   }
 
   if (!supabase) {

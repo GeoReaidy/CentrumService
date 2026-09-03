@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, roleHome } from "@/lib/supabase-role";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 
 export default function PortalPage() {
   const router = useRouter();
@@ -39,11 +40,5 @@ export default function PortalPage() {
     };
   }, [router, supabase]);
 
-  return (
-    <section className="animate-fade-in">
-      <div className="badge badge-pulse page-badge">Centrum Portal</div>
-      <h1>Opening your portal...</h1>
-      <p className="page-intro">Checking your role and loading the correct Centrum workspace.</p>
-    </section>
-  );
+  return <CentrumLoadingScreen context="Centrum Portal" message="Checking your role and opening the correct workspace." />;
 }

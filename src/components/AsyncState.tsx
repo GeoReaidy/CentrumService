@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CentrumLoadingPanel } from "@/components/CentrumLoading";
 
 type AsyncStateProps = {
   eyebrow?: string;
@@ -23,9 +24,12 @@ export function AsyncState({
   href,
   hrefLabel,
 }: AsyncStateProps) {
+  if (kind === "loading") {
+    return <CentrumLoadingPanel context={eyebrow} message={message} />;
+  }
+
   return (
     <div className={`app-state app-state-${kind}`} role={kind === "error" || kind === "offline" ? "alert" : "status"}>
-      {kind === "loading" ? <span className="app-state-spinner" aria-hidden="true" /> : null}
       {eyebrow ? <div className="badge card-badge">{eyebrow}</div> : null}
       <h2>{title}</h2>
       <p>{message}</p>

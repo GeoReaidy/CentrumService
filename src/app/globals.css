@@ -8254,3 +8254,141 @@ html[dir="rtl"] .form-four-col > * {
         white-space: normal;
     }
 }
+
+/* Unified Centrum loading system ------------------------------------------ */
+.centrum-loading-screen {
+    min-height: min(68vh, 720px);
+    display: grid;
+    place-items: center;
+    width: 100%;
+    padding: 2rem 0;
+}
+
+.centrum-loading-card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    width: min(100%, 620px);
+    display: grid;
+    justify-items: center;
+    gap: 0.72rem;
+    padding: clamp(1.6rem, 4vw, 2.5rem);
+    border: 1px solid rgba(91, 132, 226, 0.38);
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(10, 21, 44, 0.92), rgba(5, 11, 25, 0.88));
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.04);
+    text-align: center;
+}
+
+.centrum-loading-card::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 280px;
+    height: 280px;
+    top: -160px;
+    right: -80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(78, 125, 255, 0.2), transparent 68%);
+}
+
+.centrum-loading-card h2,
+.centrum-loading-card p {
+    margin: 0;
+}
+
+.centrum-loading-card p {
+    max-width: 48ch;
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.centrum-loader {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    margin-bottom: 0.2rem;
+}
+
+.centrum-loader strong {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    background: linear-gradient(145deg, #5b8bff, #2456dc);
+    color: white;
+    font-size: 1.25rem;
+    box-shadow: 0 8px 28px rgba(47, 108, 255, 0.45);
+}
+
+.centrum-loader-orbit {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid transparent;
+}
+
+.centrum-loader-orbit-outer {
+    inset: 0;
+    border-top-color: #75a0ff;
+    border-right-color: rgba(117, 160, 255, 0.22);
+    animation: centrum-state-spin 1.25s linear infinite;
+}
+
+.centrum-loader-orbit-inner {
+    inset: 8px;
+    border-bottom-color: #42e0a2;
+    border-left-color: rgba(66, 224, 162, 0.18);
+    animation: centrum-state-spin-reverse 0.95s linear infinite;
+}
+
+.centrum-loading-progress {
+    width: min(240px, 80%);
+    height: 3px;
+    margin-top: 0.45rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(117, 160, 255, 0.13);
+}
+
+.centrum-loading-progress span {
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, #75a0ff, #42e0a2, transparent);
+    animation: centrum-loading-sweep 1.45s ease-in-out infinite;
+}
+
+.centrum-inline-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--muted);
+}
+
+.centrum-inline-loading .app-state-spinner {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+    flex: 0 0 auto;
+}
+
+@keyframes centrum-state-spin-reverse {
+    to { transform: rotate(-360deg); }
+}
+
+@keyframes centrum-loading-sweep {
+    0% { transform: translateX(-130%); }
+    100% { transform: translateX(335%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .centrum-loader-orbit,
+    .centrum-loading-progress span,
+    .app-state-spinner {
+        animation-duration: 2.5s;
+    }
+}

@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import { locationMapUrl } from "@/components/LocationCapture";
 
@@ -400,9 +401,9 @@ export default function AdminOperationsPage() {
     setSavingCustomizationId(null);
   }
 
-  if (loading) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Customer Operations" title="Loading operations" message="Getting billing, announcements, requests, and customer records." /></section>;
+  if (loading) return <CentrumLoadingScreen context="Customer Operations" message="Loading billing, announcements, requests, and customer records." />;
   if (!supabase) return <section className="admin-page"><AsyncState kind="error" eyebrow="Customer Operations" title="Operations are temporarily unavailable" message="Centrum couldn't connect to the backend. Please try again shortly." /></section>;
-  if (!account) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Customer Operations" title="Redirecting" message="Checking your admin session." /></section>;
+  if (!account) return <CentrumLoadingScreen context="Customer Operations" message="Checking your staff session." />;
 
   return (
     <section className="animate-fade-in admin-page operations-page">

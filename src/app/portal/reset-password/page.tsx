@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { CentrumInlineLoading } from "@/components/CentrumLoading";
 
 const RECOVERY_MARKER = "centrum_password_recovery_active";
 
@@ -199,7 +200,7 @@ export default function PortalResetPasswordPage() {
           </p>
 
           {isCheckingLink ? (
-              <p className="form-alert">Checking your secure reset link...</p>
+              <p className="form-alert"><CentrumInlineLoading message="Checking your secure reset link..." /></p>
           ) : null}
 
           {successMessage ? (

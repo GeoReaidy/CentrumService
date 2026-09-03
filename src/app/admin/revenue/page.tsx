@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
@@ -339,7 +340,7 @@ export default function AdminRevenuePage() {
   }
 
   if (loading) {
-    return <section className="admin-page"><AsyncState kind="loading" eyebrow="Finance" title="Opening Revenue & Collections" message="Checking administrator access and loading customer billing data." /></section>;
+    return <CentrumLoadingScreen context="Revenue & Collections" message="Checking staff access and loading customer billing data." />;
   }
 
   if (!supabase) {

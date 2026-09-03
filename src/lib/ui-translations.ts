@@ -818,7 +818,28 @@ const AUTH_SECURITY_UI: Record<string, Translation> = {
   "Approve": { fr: "Approuver", ar: "موافقة" },
   "Reject": { fr: "Refuser", ar: "رفض" },
   "There are no subscriber link requests.": { fr: "Il n’y a aucune demande de liaison d’abonnement.", ar: "لا توجد طلبات ربط اشتراك." },
-  "Security": { fr: "Sécurité", ar: "الأمان" }
+  "Security": { fr: "Sécurité", ar: "الأمان" },
+  "Getting things ready": { fr: "Préparation en cours", ar: "جارٍ تجهيز كل شيء" },
+  "Loading the latest information securely.": { fr: "Chargement sécurisé des dernières informations.", ar: "جارٍ تحميل أحدث المعلومات بأمان." },
+  "Staff Security": { fr: "Sécurité du personnel", ar: "أمان الموظفين" },
+  "Secure Sign-In": { fr: "Connexion sécurisée", ar: "تسجيل دخول آمن" },
+  "Checking your role and opening the correct workspace.": { fr: "Vérification de votre rôle et ouverture de l’espace approprié.", ar: "جارٍ التحقق من دورك وفتح مساحة العمل المناسبة." },
+  "Verifying your protected Centrum session.": { fr: "Vérification de votre session Centrum protégée.", ar: "جارٍ التحقق من جلسة Centrum المحمية." },
+  "Loading your account settings securely.": { fr: "Chargement sécurisé des paramètres de votre compte.", ar: "جارٍ تحميل إعدادات حسابك بأمان." },
+  "Loading Centrum’s active plans.": { fr: "Chargement des forfaits Centrum actifs.", ar: "جارٍ تحميل باقات Centrum النشطة." },
+  "Checking your role and loading customer operations.": { fr: "Vérification de votre rôle et chargement des opérations clients.", ar: "جارٍ التحقق من دورك وتحميل عمليات العملاء." },
+  "Checking your access and loading Centrum operations data.": { fr: "Vérification de votre accès et chargement des données opérationnelles Centrum.", ar: "جارٍ التحقق من وصولك وتحميل بيانات عمليات Centrum." },
+  "Checking staff access and loading customer conversations.": { fr: "Vérification de l’accès du personnel et chargement des conversations clients.", ar: "جارٍ التحقق من وصول الموظفين وتحميل محادثات العملاء." },
+  "Checking your staff session.": { fr: "Vérification de votre session du personnel.", ar: "جارٍ التحقق من جلسة الموظف." },
+  "Loading billing, announcements, requests, and customer records.": { fr: "Chargement de la facturation, des annonces, des demandes et des dossiers clients.", ar: "جارٍ تحميل الفوترة والإعلانات والطلبات وسجلات العملاء." },
+  "Checking staff access and loading customer billing data.": { fr: "Vérification de l’accès du personnel et chargement des données de facturation.", ar: "جارٍ التحقق من وصول الموظفين وتحميل بيانات فوترة العملاء." },
+  "Checking administrator access and loading Centrum accounts.": { fr: "Vérification de l’accès administrateur et chargement des comptes Centrum.", ar: "جارٍ التحقق من وصول المسؤول وتحميل حسابات Centrum." },
+  "Checking your secure account session.": { fr: "Vérification de votre session de compte sécurisée.", ar: "جارٍ التحقق من جلسة حسابك الآمنة." },
+  "Loading your account, billing, support, and network status.": { fr: "Chargement de votre compte, facturation, assistance et état du réseau.", ar: "جارٍ تحميل حسابك والفوترة والدعم وحالة الشبكة." },
+  "Opening your conversation and loading recent messages.": { fr: "Ouverture de votre conversation et chargement des messages récents.", ar: "جارٍ فتح محادثتك وتحميل الرسائل الأخيرة." },
+  "Checking your account before opening the support form.": { fr: "Vérification de votre compte avant l’ouverture du formulaire d’assistance.", ar: "جارٍ التحقق من حسابك قبل فتح نموذج الدعم." },
+  "Verifying your Google account and opening the correct Centrum workspace.": { fr: "Vérification de votre compte Google et ouverture de l’espace Centrum approprié.", ar: "جارٍ التحقق من حساب Google وفتح مساحة Centrum المناسبة." },
+  "Finishing your Centrum email verification securely.": { fr: "Finalisation sécurisée de la vérification de votre e-mail Centrum.", ar: "جارٍ إكمال التحقق من بريد Centrum بأمان." }
 };
 
 const ATTR_TRANSLATIONS = { ...UI, ...EXTRA_UI, ...AUTH_AND_SUPPORT_STATES, ...SCREENSHOT_AND_CUSTOMER_PATCH, ...HEADER_ATTRIBUTES, ...LOCATION_AND_CUSTOMER_AUDIT_PATCH, ...AUTH_SECURITY_UI };

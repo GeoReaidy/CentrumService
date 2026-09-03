@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 
 function decodedError(
     queryParams: URLSearchParams,
@@ -170,19 +171,13 @@ export default function PortalEmailConfirmedPage() {
     };
   }, []);
 
+  if (status === "working") {
+    return <CentrumLoadingScreen context="Account Verification" message="Finishing your Centrum email verification securely." />;
+  }
+
   return (
       <section className="auth-shell animate-fade-in">
         <article className="card auth-card">
-          {status === "working" ? (
-              <>
-                <div className="badge card-badge">Account Verification</div>
-                <h1>Confirming Your Email</h1>
-                <p className="page-intro">
-                  Finishing your Centrum account verification...
-                </p>
-              </>
-          ) : null}
-
           {status === "success" ? (
               <>
                 <div className="badge card-badge">Verified</div>

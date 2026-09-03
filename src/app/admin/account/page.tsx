@@ -11,6 +11,7 @@ import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
 import { ConnectedAccountsCard } from "@/components/ConnectedAccountsCard";
 import { SecurityDevicesCard } from "@/components/SecurityDevicesCard";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 
 export default function AdminAccountPage() {
   const router = useRouter();
@@ -148,16 +149,7 @@ export default function AdminAccountPage() {
   }
 
   if (isLoading) {
-    return (
-      <section className="admin-page">
-        <AsyncState
-          kind="loading"
-          eyebrow="Administrator Account"
-          title="Opening account settings"
-          message="Checking your administrator session."
-        />
-      </section>
-    );
+    return <CentrumLoadingScreen context="Administrator Account" message="Checking your secure account session." />;
   }
 
   if (!supabase) {

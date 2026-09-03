@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { LOGIN_DEVICE_STORAGE_KEY } from '@/components/LoginSecurityMonitor';
+import { CentrumInlineLoading } from '@/components/CentrumLoading';
 
 type LoginDevice = { id: string; label: string; first_seen_at: string; last_seen_at: string };
 
@@ -46,7 +47,7 @@ export function SecurityDevicesCard() {
       <div className="badge card-badge">Login Security</div>
       <h2>Recognized Browsers</h2>
       <p className="page-intro">Centrum records a one-way browser identifier and alerts you the first time a new browser signs in.</p>
-      {loading ? <p className="field-note">Loading recognized browsers...</p> : devices.length ? (
+      {loading ? <p className="field-note"><CentrumInlineLoading message="Loading recognized browsers..." /></p> : devices.length ? (
         <div className="security-list">
           {devices.map((device) => <div className="security-list-row" key={device.id}><div><strong>{device.label}</strong><small>Last seen {new Date(device.last_seen_at).toLocaleString()}</small></div><button type="button" className="btn btn-secondary btn-compact" onClick={() => void forget(device.id)}>Forget</button></div>)}
         </div>

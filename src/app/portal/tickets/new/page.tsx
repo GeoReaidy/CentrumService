@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
 export default function NewTicketPage() {
@@ -68,7 +69,7 @@ export default function NewTicketPage() {
     }
   }
 
-  if (authLoading) return <section><AsyncState kind="loading" eyebrow="Support" title="Preparing a new ticket" message="Checking your account before opening the support form." /></section>;
+  if (authLoading) return <CentrumLoadingScreen context="Centrum Support" message="Checking your account before opening the support form." />;
   if (!supabase) return <section><AsyncState kind="error" eyebrow="Support" title="Ticket service is temporarily unavailable" message="Centrum couldn't connect to support right now." href="/contact" hrefLabel="Contact Centrum" /></section>;
   if (!user) return <section><AsyncState kind="empty" eyebrow="Sign In Required" title="Sign in to open a support ticket" message="Support tickets are linked to your Centrum account so you can follow replies and status changes." href="/portal/login" hrefLabel="Sign In" /></section>;
 

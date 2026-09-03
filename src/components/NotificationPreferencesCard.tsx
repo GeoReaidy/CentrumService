@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { defaultNotificationPreferences, type NotificationCategory, type NotificationPreferences } from '@/components/NotificationCenter';
 import { toFriendlyErrorMessage } from '@/lib/friendly-error';
+import { CentrumInlineLoading } from '@/components/CentrumLoading';
 
 type Props = {
   userId: string;
@@ -118,7 +119,7 @@ export function NotificationPreferencesCard({ userId, isAdmin = false }: Props) 
         Choose what Centrum surfaces in the notification bell. Unread reminders can reappear until you open or mark them read.
       </p>
 
-      {loading ? <p className="field-note">Loading notification preferences…</p> : (
+      {loading ? <p className="field-note"><CentrumInlineLoading message="Loading notification preferences…" /></p> : (
         <div className="notification-settings-list">
           <NotificationToggle
             label="In-app notifications"

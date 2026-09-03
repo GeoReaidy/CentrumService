@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, roleHome } from "@/lib/supabase-role";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 
 export default function PortalAuthCallbackPage() {
   const router = useRouter();
@@ -72,27 +73,17 @@ export default function PortalAuthCallbackPage() {
     };
   }, [router]);
 
+  if (!errorMessage) {
+    return <CentrumLoadingScreen context="Secure Sign-In" message="Verifying your Google account and opening the correct Centrum workspace." />;
+  }
+
   return (
     <section className="auth-shell auth-shell-single animate-fade-in">
       <article className="card auth-card auth-callback-card">
-        {errorMessage ? (
-          <>
-            <div className="badge card-badge">Sign-in problem</div>
-            <h1>Google Sign-In Couldn&apos;t Finish</h1>
-            <p className="form-alert form-alert-error">{errorMessage}</p>
-            <Link href="/portal/login" className="btn btn-secondary">
-              Return to Sign In
-            </Link>
-          </>
-        ) : (
-          <>
-            <div className="badge badge-pulse card-badge">Secure sign-in</div>
-            <h1>Completing Google sign-in...</h1>
-            <p className="page-intro">
-              Verifying your account and opening the correct Centrum workspace.
-            </p>
-          </>
-        )}
+        <div className="badge card-badge">Sign-in problem</div>
+        <h1>Google Sign-In Couldn&apos;t Finish</h1>
+        <p className="form-alert form-alert-error">{errorMessage}</p>
+        <Link href="/portal/login" className="btn btn-secondary">Return to Sign In</Link>
       </article>
     </section>
   );

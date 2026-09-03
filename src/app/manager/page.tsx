@@ -8,6 +8,7 @@ import { AsyncState } from "@/components/AsyncState";
 import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
 import { ConnectedAccountsCard } from "@/components/ConnectedAccountsCard";
 import { SecurityDevicesCard } from "@/components/SecurityDevicesCard";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, type CentrumRole } from "@/lib/supabase-role";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
@@ -286,7 +287,7 @@ export default function ManagerPage() {
     router.refresh();
   }
 
-  if (loading) return <section className="manager-page"><AsyncState kind="loading" eyebrow="Manager Access" title="Opening manager console" message="Checking your role and loading customer operations." /></section>;
+  if (loading) return <CentrumLoadingScreen context="Manager Console" message="Checking your role and loading customer operations." />;
   if (!supabase) return <section className="manager-page"><AsyncState kind="error" eyebrow="Manager Console" title="Manager services are unavailable" message="Centrum could not connect to the account service." /></section>;
   if (!account) return null;
 

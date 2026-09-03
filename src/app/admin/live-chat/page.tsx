@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, type CentrumRole } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 
 type ChatSession = { id: string; customer_id: string; status: "open" | "closed"; started_at: string; updated_at: string };
@@ -131,9 +132,9 @@ export default function AdminLiveChatPage() {
     else await fetchSessions();
   }
 
-  if (loading) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Support Desk" title="Loading live chat inbox" message="Checking admin access and loading customer conversations." /></section>;
+  if (loading) return <CentrumLoadingScreen context="Support Desk" message="Checking staff access and loading customer conversations." />;
   if (!supabase) return <section className="admin-page"><AsyncState kind="error" eyebrow="Support Desk" title="Live chat administration is unavailable" message="Centrum couldn't connect to the backend right now." /></section>;
-  if (!account) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Support Desk" title="Redirecting" message="Checking your admin session." /></section>;
+  if (!account) return <CentrumLoadingScreen context="Support Desk" message="Checking your staff session." />;
 
   return (
     <section className="animate-fade-in admin-page">

@@ -5,6 +5,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import { useLanguage } from "@/components/LanguageProvider";
 import { localizedDateLocale } from "@/lib/i18n";
@@ -246,7 +247,7 @@ export default function PortalTicketDetailsPage(props: { params: Promise<{ id: s
   }
 
   if (isLoading || !authReady) {
-    return <section><AsyncState kind="loading" eyebrow="Support Ticket" title="Loading ticket" message="Checking access and loading the latest support updates." /></section>;
+    return <CentrumLoadingScreen context="Support Ticket" message="Checking access and loading the latest support updates." />;
   }
 
   if (!user) {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { UserIdentity } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { CentrumInlineLoading } from '@/components/CentrumLoading';
 
 export function ConnectedAccountsCard() {
   const supabase = getSupabaseBrowserClient();
@@ -45,7 +46,7 @@ export function ConnectedAccountsCard() {
       <div className="badge card-badge">Sign-in Security</div>
       <h2>Connected Accounts</h2>
       <p className="page-intro">Manage the secure methods that can sign in to this same Centrum account.</p>
-      {loading ? <p className="field-note">Loading connected accounts...</p> : (
+      {loading ? <p className="field-note"><CentrumInlineLoading message="Loading connected accounts..." /></p> : (
         <div className="security-list">
           {identities.map((identity) => (
             <div className="security-list-row" key={identity.id}>

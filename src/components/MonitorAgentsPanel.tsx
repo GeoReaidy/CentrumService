@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { CentrumInlineLoading } from "@/components/CentrumLoading";
 import { formatRelativeTime, heartbeatIsFresh } from "@/lib/network-monitoring";
 import { buildMonitorAgentInstructions, buildMonitorAgentSetupScript, createMonitorAgentToken, getMonitorAgentFileNames, sha256Hex } from "@/lib/monitor-agent-script";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
@@ -396,7 +397,7 @@ export function MonitorAgentsPanel({ nodes }: Props) {
         </div>
       ) : null}
 
-      {isLoading ? <p className="empty-state">Loading monitoring agents…</p> : null}
+      {isLoading ? <p className="empty-state"><CentrumInlineLoading message="Loading monitoring agents…" /></p> : null}
       {!isLoading && !agents.length ? <p className="empty-state">No monitoring agents are configured yet.</p> : null}
 
       <div className="monitor-agent-list">

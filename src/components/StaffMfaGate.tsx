@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { resolveUserRole } from '@/lib/supabase-role';
+import { CentrumLoadingScreen } from '@/components/CentrumLoading';
 
 type Mode = 'checking' | 'allowed' | 'enroll' | 'challenge' | 'denied';
 
@@ -83,7 +84,7 @@ export function StaffMfaGate({ children }: Readonly<{ children: React.ReactNode 
   }
 
   if (mode === 'allowed') return <>{children}</>;
-  if (mode === 'checking') return <section className="security-gate"><article className="card security-gate-card"><h1>Checking staff security</h1><p className="page-intro">Verifying your administrator session.</p></article></section>;
+  if (mode === 'checking') return <CentrumLoadingScreen context="Staff Security" message="Verifying your protected Centrum session." />;
 
   return (
     <section className="security-gate animate-fade-in">

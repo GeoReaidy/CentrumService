@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { useLanguage } from "@/components/LanguageProvider";
 import { localizedField } from "@/lib/i18n";
 
@@ -70,12 +71,7 @@ export default function PlansPage() {
   }
 
   if (isLoading) {
-    return (
-      <section>
-        <h1>Internet Plans</h1>
-        <p className="page-intro">Loading active plans...</p>
-      </section>
-    );
+    return <CentrumLoadingScreen context="Internet Plans" message="Loading Centrum’s active plans." />;
   }
 
   return (

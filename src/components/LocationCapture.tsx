@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./GoogleMapsLocationPicker.module.css";
 import { useLanguage } from "@/components/LanguageProvider";
 import { translateUiText } from "@/lib/ui-translations";
+import { CentrumInlineLoading } from "@/components/CentrumLoading";
 
 export type CapturedLocation = {
   latitude: number;
@@ -303,7 +304,7 @@ function GoogleMapsPicker({ initialLocation, onCancel, onConfirm }: PickerProps)
               <span className={styles.pinPoint} />
             </div>
           ) : null}
-          {mapLoading ? <div className={styles.mapState}>{t("Loading Google Maps...")}</div> : null}
+          {mapLoading ? <div className={styles.mapState}><CentrumInlineLoading message={t("Loading Google Maps...")} /></div> : null}
           {mapError ? <div className={`${styles.mapState} ${styles.mapError}`}><strong>{t("Map unavailable")}</strong><span>{t(mapError)}</span></div> : null}
         </div>
 

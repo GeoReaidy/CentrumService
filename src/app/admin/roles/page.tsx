@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { AsyncState } from "@/components/AsyncState";
+import { CentrumLoadingScreen } from "@/components/CentrumLoading";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin, type CentrumRole } from "@/lib/supabase-role";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
@@ -132,7 +133,7 @@ export default function AdminRolesPage() {
     setSavingId(null);
   }
 
-  if (loading) return <section className="admin-page"><AsyncState kind="loading" eyebrow="Staff & Roles" title="Loading role controls" message="Checking administrator access and loading Centrum accounts." /></section>;
+  if (loading) return <CentrumLoadingScreen context="Staff & Roles" message="Checking administrator access and loading Centrum accounts." />;
   if (!supabase) return <section className="admin-page"><AsyncState kind="error" eyebrow="Staff & Roles" title="Role controls are unavailable" message="Centrum could not connect to the account service." /></section>;
   if (!account) return null;
 
