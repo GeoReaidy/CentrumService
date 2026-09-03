@@ -6,6 +6,9 @@ import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
+import { ConnectedAccountsCard } from "@/components/ConnectedAccountsCard";
+import { SecurityDevicesCard } from "@/components/SecurityDevicesCard";
+import { SubscriberLinkCard } from "@/components/SubscriberLinkCard";
 
 export default function PortalAccountPage() {
   const router = useRouter();
@@ -188,6 +191,10 @@ export default function PortalAccountPage() {
             <Link href="/portal/forgot-password" className="btn btn-secondary">Reset Password</Link>
           </div>
         </article>
+
+        <SubscriberLinkCard userId={account.id} suggestedName={String(account.user_metadata?.full_name ?? '')} />
+        <ConnectedAccountsCard />
+        <SecurityDevicesCard />
 
         <article className="card portal-mode-settings-card">
           <div className="badge card-badge">Portal Experience</div>

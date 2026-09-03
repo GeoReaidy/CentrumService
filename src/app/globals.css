@@ -16,6 +16,101 @@
     --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* Authentication security suite */
+.security-gate {
+    min-height: 62vh;
+    display: grid;
+    place-items: center;
+    padding: 2rem 0;
+}
+
+.security-gate-card {
+    width: min(560px, 100%);
+    display: grid;
+    gap: 1rem;
+}
+
+.mfa-enrollment {
+    display: grid;
+    gap: 0.8rem;
+    justify-items: start;
+}
+
+.mfa-enrollment img {
+    background: #fff;
+    border-radius: 14px;
+    padding: 10px;
+    max-width: 100%;
+    height: auto;
+}
+
+.mfa-secret {
+    display: block;
+    max-width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.security-list,
+.review-list {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1rem 0;
+}
+
+.security-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(75, 107, 185, 0.3);
+    border-radius: 12px;
+    background: rgba(5, 10, 22, 0.35);
+}
+
+.security-list-row > div {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.security-list-row small {
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.review-request {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid rgba(75, 107, 185, 0.3);
+    border-radius: 14px;
+    background: rgba(5, 10, 22, 0.35);
+}
+
+.review-request-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .security-list-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .security-list-row .btn {
+        width: 100%;
+    }
+}
+
 * {
     box-sizing: border-box;
     padding: 0;
@@ -495,6 +590,75 @@ h1 {
 .auth-card,
 .auth-aside {
     padding: 1.4rem;
+}
+
+.auth-shell-single {
+    grid-template-columns: minmax(0, 620px);
+    justify-content: center;
+}
+
+.auth-callback-card {
+    text-align: center;
+}
+
+.auth-callback-card .btn {
+    margin-top: 1rem;
+}
+
+.google-auth-block {
+    display: grid;
+    gap: 0.7rem;
+    margin-top: 1.2rem;
+}
+
+.btn-google {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+    gap: 0.72rem;
+    color: #15213b;
+    background: #ffffff;
+    border-color: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    white-space: normal;
+}
+
+.btn-google:hover:not(:disabled) {
+    color: #0c1730;
+    background: #f5f8ff;
+    border-color: #ffffff;
+}
+
+.google-auth-icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+}
+
+.google-auth-error {
+    margin: 0;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin: 1.15rem 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: rgba(115, 146, 220, 0.3);
+}
+
+.auth-divider span {
+    max-width: 72%;
 }
 
 .field-note {

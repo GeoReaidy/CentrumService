@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { getSupabaseBrowserClient, setRememberSession } from "@/lib/supabase-browser";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 function loginErrorMessage(error: { message?: string; status?: number }) {
   const message = (error.message ?? "").toLowerCase();
@@ -99,6 +100,15 @@ export default function PortalLoginPage() {
         <p className="page-intro">
           Sign in to open the correct Centrum workspace for your account.
         </p>
+
+        <GoogleSignInButton
+          disabled={isSubmitting}
+          rememberSession={rememberMe}
+        />
+
+        <div className="auth-divider" role="separator">
+          <span>or use email and password</span>
+        </div>
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>

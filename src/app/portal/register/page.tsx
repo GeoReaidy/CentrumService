@@ -8,6 +8,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { ServiceCustomizationWizard } from "@/components/ServiceCustomizationWizard";
 import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const CONFIRM_REDIRECT =
   "https://centrumservice.net/portal/email-confirmed";
@@ -127,6 +128,12 @@ export default function PortalRegisterPage() {
         <p className="page-intro">
           Register to track support requests and manage your internet service details.
         </p>
+
+        <GoogleSignInButton disabled={isSubmitting} />
+
+        <div className="auth-divider" role="separator">
+          <span>or create an account with email</span>
+        </div>
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>

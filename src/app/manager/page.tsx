@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { AsyncState } from "@/components/AsyncState";
 import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
+import { ConnectedAccountsCard } from "@/components/ConnectedAccountsCard";
+import { SecurityDevicesCard } from "@/components/SecurityDevicesCard";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveUserRole, type CentrumRole } from "@/lib/supabase-role";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
@@ -309,6 +311,7 @@ export default function ManagerPage() {
         </div>
         <div className="admin-header-utilities">
           {role === "admin" ? <Link href="/admin" className="btn btn-primary">Admin Console</Link> : null}
+          <Link href="/manager/subscriber-links" className="btn btn-secondary">Subscriber Links</Link>
           <Link href="/" className="btn btn-secondary">Homepage</Link>
           <button type="button" className="btn btn-secondary" onClick={() => void signOut()} disabled={signingOut}>{signingOut ? "Signing Out..." : "Sign Out"}</button>
         </div>
@@ -335,6 +338,7 @@ export default function ManagerPage() {
           <summary>Tools</summary>
           <div className="mobile-console-tools-menu">
             <Link href="/manager/live-chat" className="mobile-console-tool-link"><strong>Live Chat Inbox</strong><small>Realtime customer chats</small></Link>
+            <Link href="/manager/subscriber-links" className="mobile-console-tool-link"><strong>Subscriber Links</strong><small>Verify portal requests</small></Link>
             {role === "admin" ? <Link href="/admin" className="mobile-console-tool-link"><strong>Admin Console</strong><small>Return to full administration</small></Link> : null}
             <Link href="/" className="mobile-console-tool-link"><strong>Homepage</strong><small>Open the public site</small></Link>
             <button type="button" className="mobile-console-tool-link mobile-console-signout" onClick={() => void signOut()} disabled={signingOut}>
@@ -359,6 +363,7 @@ export default function ManagerPage() {
           <div className="admin-sidebar-section admin-sidebar-tools">
             <span className="admin-sidebar-eyebrow">Quick Tools</span>
             <Link href="/manager/live-chat" className="admin-tool-link"><span><strong>Live Chat Inbox</strong><small>Realtime customer chats</small></span><span>→</span></Link>
+            <Link href="/manager/subscriber-links" className="admin-tool-link"><span><strong>Subscriber Links</strong><small>Verify portal requests</small></span><span>→</span></Link>
             <Link href="/portal" className="admin-tool-link"><span><strong>Role Home</strong><small>Reload role routing</small></span><span>→</span></Link>
           </div>
         </aside>
@@ -453,6 +458,7 @@ export default function ManagerPage() {
           {workspace === "settings" ? (
             <div className="manager-workspace"><div className="admin-workspace-heading"><div><div className="badge card-badge">Manager Settings</div><h2>Notifications & session</h2><p className="page-intro">Personal settings only. Staff roles and system security remain admin-only.</p></div></div>
               <NotificationPreferencesCard userId={account.id} isAdmin />
+              <div className="section-grid"><ConnectedAccountsCard /><SecurityDevicesCard /></div>
               <article className="card manager-session-card"><div><div className="badge card-badge">Session</div><h2>{account.email ?? "Manager account"}</h2><p className="page-intro">Signed in with the Manager role.</p></div><button type="button" className="btn btn-secondary" onClick={() => void signOut()} disabled={signingOut}>{signingOut ? "Signing Out..." : "Sign Out"}</button></article>
             </div>
           ) : null}

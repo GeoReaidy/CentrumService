@@ -23,7 +23,15 @@ type LanguageContextValue = {
   setLocale: (locale: Locale) => void;
 };
 
-const LanguageContext = createContext<LanguageContextValue | null>(null);
+const FALLBACK_LANGUAGE_CONTEXT: LanguageContextValue = {
+  locale: DEFAULT_LOCALE,
+  setLocale: () => {
+    // A no-op fallback keeps isolated UI such as an error boundary or portal
+    // notification from crashing before the root provider has mounted.
+  },
+};
+
+const LanguageContext = createContext<LanguageContextValue>(FALLBACK_LANGUAGE_CONTEXT);
 
 const sourceText = new WeakMap<Text, string>();
 const lastText = new WeakMap<Text, string>();
@@ -155,7 +163,5 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 }
 
 export function useLanguage() {
-  const value = useContext(LanguageContext);
-  if (!value) throw new Error("useLanguage must be used inside LanguageProvider");
-  return value;
+  return useContext(LanguageContext);
 }

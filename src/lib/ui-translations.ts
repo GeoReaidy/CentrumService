@@ -61,6 +61,18 @@ const UI: Record<string, Translation> = {
   "Forgot password?": { fr: "Mot de passe oublié ?", ar: "نسيت كلمة المرور؟" },
   "Remember me on this device": { fr: "Se souvenir de moi sur cet appareil", ar: "تذكرني على هذا الجهاز" },
   "Signing in...": { fr: "Connexion...", ar: "جارٍ تسجيل الدخول..." },
+  "Continue with Google": { fr: "Continuer avec Google", ar: "المتابعة باستخدام Google" },
+  "Connecting to Google...": { fr: "Connexion à Google...", ar: "جارٍ الاتصال بـ Google..." },
+  "or use email and password": { fr: "ou utilisez votre e-mail et votre mot de passe", ar: "أو استخدم البريد الإلكتروني وكلمة المرور" },
+  "or create an account with email": { fr: "ou créez un compte avec votre e-mail", ar: "أو أنشئ حسابًا باستخدام البريد الإلكتروني" },
+  "Google sign-in is unavailable right now. Please try again.": { fr: "La connexion avec Google est indisponible pour le moment. Réessayez.", ar: "تسجيل الدخول باستخدام Google غير متاح حاليًا. حاول مجددًا." },
+  "Google sign-in was cancelled or could not be completed.": { fr: "La connexion avec Google a été annulée ou n'a pas pu être terminée.", ar: "تم إلغاء تسجيل الدخول باستخدام Google أو تعذر إكماله." },
+  "We couldn't finish Google sign-in. Please return to login and try again.": { fr: "Nous n'avons pas pu terminer la connexion avec Google. Revenez à la page de connexion et réessayez.", ar: "تعذر إكمال تسجيل الدخول باستخدام Google. عد إلى صفحة تسجيل الدخول وحاول مجددًا." },
+  "Sign-in problem": { fr: "Problème de connexion", ar: "مشكلة في تسجيل الدخول" },
+  "Google Sign-In Couldn't Finish": { fr: "La connexion avec Google n'a pas pu aboutir", ar: "تعذر إكمال تسجيل الدخول باستخدام Google" },
+  "Secure sign-in": { fr: "Connexion sécurisée", ar: "تسجيل دخول آمن" },
+  "Completing Google sign-in...": { fr: "Finalisation de la connexion avec Google...", ar: "جارٍ إكمال تسجيل الدخول باستخدام Google..." },
+  "Verifying your account and opening the correct Centrum workspace.": { fr: "Vérification de votre compte et ouverture de l'espace Centrum approprié.", ar: "جارٍ التحقق من حسابك وفتح مساحة Centrum المناسبة." },
   "Need another confirmation email?": { fr: "Besoin d'un nouvel e-mail de confirmation ?", ar: "تحتاج إلى رسالة تأكيد أخرى؟" },
   "Resend confirmation": { fr: "Renvoyer la confirmation", ar: "إعادة إرسال التأكيد" },
   "New customer?": { fr: "Nouveau client ?", ar: "عميل جديد؟" },
@@ -755,10 +767,64 @@ const LOCATION_AND_CUSTOMER_AUDIT_PATCH: Record<string, Translation> = {
   "Notifications are temporarily unavailable.": { fr: "Les notifications sont temporairement indisponibles.", ar: "الإشعارات غير متاحة مؤقتًا." }
 };
 
-const ATTR_TRANSLATIONS = { ...UI, ...EXTRA_UI, ...AUTH_AND_SUPPORT_STATES, ...SCREENSHOT_AND_CUSTOMER_PATCH, ...HEADER_ATTRIBUTES, ...LOCATION_AND_CUSTOMER_AUDIT_PATCH };
+const AUTH_SECURITY_UI: Record<string, Translation> = {
+  "Mandatory Staff Security": { fr: "Sécurité obligatoire du personnel", ar: "أمان إلزامي للموظفين" },
+  "Set up two-step verification": { fr: "Configurer la vérification en deux étapes", ar: "إعداد التحقق بخطوتين" },
+  "Enter your verification code": { fr: "Saisissez votre code de vérification", ar: "أدخل رمز التحقق" },
+  "Staff access is locked": { fr: "L’accès du personnel est verrouillé", ar: "وصول الموظفين مقفل" },
+  "Administrators and managers must verify with an authenticator app before Centrum data can be opened.": { fr: "Les administrateurs et responsables doivent utiliser une application d’authentification avant d’ouvrir les données Centrum.", ar: "يجب على المسؤولين والمديرين التحقق عبر تطبيق مصادقة قبل فتح بيانات Centrum." },
+  "Set up authenticator app": { fr: "Configurer l’application d’authentification", ar: "إعداد تطبيق المصادقة" },
+  "Scan this QR code in Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP app.": { fr: "Scannez ce code QR dans Google Authenticator, Microsoft Authenticator, 1Password ou une autre application TOTP.", ar: "امسح رمز QR في Google Authenticator أو Microsoft Authenticator أو 1Password أو أي تطبيق TOTP." },
+  "Can’t scan it?": { fr: "Impossible de le scanner ?", ar: "لا يمكنك مسحه؟" },
+  "6-digit verification code": { fr: "Code de vérification à 6 chiffres", ar: "رمز تحقق من 6 أرقام" },
+  "Verify and open console": { fr: "Vérifier et ouvrir la console", ar: "تحقق وافتح لوحة الإدارة" },
+  "Checking staff security": { fr: "Vérification de la sécurité du personnel", ar: "جارٍ التحقق من أمان الموظفين" },
+  "Verifying your administrator session.": { fr: "Vérification de votre session d’administration.", ar: "جارٍ التحقق من جلسة الإدارة." },
+  "Sign-in Security": { fr: "Sécurité de connexion", ar: "أمان تسجيل الدخول" },
+  "Connected Accounts": { fr: "Comptes connectés", ar: "الحسابات المرتبطة" },
+  "Manage the secure methods that can sign in to this same Centrum account.": { fr: "Gérez les méthodes sécurisées permettant d’accéder à ce même compte Centrum.", ar: "أدر طرق تسجيل الدخول الآمنة إلى حساب Centrum نفسه." },
+  "Loading connected accounts...": { fr: "Chargement des comptes connectés…", ar: "جارٍ تحميل الحسابات المرتبطة..." },
+  "Email and password": { fr: "E-mail et mot de passe", ar: "البريد الإلكتروني وكلمة المرور" },
+  "Connected": { fr: "Connecté", ar: "مرتبط" },
+  "Disconnect": { fr: "Déconnecter", ar: "إلغاء الربط" },
+  "Connect Google": { fr: "Connecter Google", ar: "ربط Google" },
+  "Opening Google...": { fr: "Ouverture de Google…", ar: "جارٍ فتح Google..." },
+  "At least one sign-in method must remain connected.": { fr: "Au moins une méthode de connexion doit rester connectée.", ar: "يجب أن تبقى طريقة تسجيل دخول واحدة على الأقل مرتبطة." },
+  "Login Security": { fr: "Sécurité des connexions", ar: "أمان تسجيل الدخول" },
+  "Recognized Browsers": { fr: "Navigateurs reconnus", ar: "المتصفحات المعروفة" },
+  "Centrum records a one-way browser identifier and alerts you the first time a new browser signs in.": { fr: "Centrum enregistre un identifiant de navigateur à sens unique et vous avertit lors de la première connexion d’un nouveau navigateur.", ar: "يسجل Centrum معرّف متصفح أحادي الاتجاه وينبهك عند أول تسجيل دخول من متصفح جديد." },
+  "Loading recognized browsers...": { fr: "Chargement des navigateurs reconnus…", ar: "جارٍ تحميل المتصفحات المعروفة..." },
+  "No recognized browser has been registered yet.": { fr: "Aucun navigateur reconnu n’est encore enregistré.", ar: "لم يتم تسجيل أي متصفح معروف بعد." },
+  "Forget": { fr: "Oublier", ar: "نسيان" },
+  "This wasn’t me — sign out everywhere": { fr: "Ce n’était pas moi — tout déconnecter", ar: "لم أكن أنا — تسجيل الخروج من كل الأجهزة" },
+  "This revokes every refresh token. Existing short-lived access tokens remain valid until they expire.": { fr: "Cela révoque tous les jetons d’actualisation. Les jetons d’accès de courte durée restent valides jusqu’à leur expiration.", ar: "يلغي هذا جميع رموز التحديث. تبقى رموز الوصول قصيرة المدة صالحة حتى انتهاء صلاحيتها." },
+  "Subscription": { fr: "Abonnement", ar: "الاشتراك" },
+  "Centrum service linked": { fr: "Service Centrum lié", ar: "تم ربط خدمة Centrum" },
+  "This portal account is verified and connected to your Centrum subscription.": { fr: "Ce compte portail est vérifié et connecté à votre abonnement Centrum.", ar: "تم التحقق من حساب البوابة وربطه باشتراك Centrum الخاص بك." },
+  "Verified": { fr: "Vérifié", ar: "تم التحقق" },
+  "Link your Centrum service": { fr: "Lier votre service Centrum", ar: "اربط خدمة Centrum الخاصة بك" },
+  "If Google did not match your existing account email, send your customer details for a secure staff review.": { fr: "Si Google n’a pas retrouvé l’e-mail de votre compte, envoyez vos informations pour une vérification sécurisée par le personnel.", ar: "إذا لم يطابق Google بريد حسابك الحالي، فأرسل بياناتك لمراجعة آمنة من الموظفين." },
+  "Full name": { fr: "Nom complet", ar: "الاسم الكامل" },
+  "Phone number": { fr: "Numéro de téléphone", ar: "رقم الهاتف" },
+  "Customer code or service reference": { fr: "Code client ou référence du service", ar: "رمز العميل أو مرجع الخدمة" },
+  "Anything staff should know (optional)": { fr: "Informations utiles pour le personnel (facultatif)", ar: "أي معلومات يجب أن يعرفها الموظفون (اختياري)" },
+  "Request secure linking": { fr: "Demander la liaison sécurisée", ar: "طلب الربط الآمن" },
+  "Subscriber Links": { fr: "Liaisons d’abonnés", ar: "ربط المشتركين" },
+  "Verify portal requests": { fr: "Vérifier les demandes du portail", ar: "التحقق من طلبات البوابة" },
+  "Staff Verification": { fr: "Vérification par le personnel", ar: "تحقق الموظفين" },
+  "Subscriber Link Requests": { fr: "Demandes de liaison d’abonnement", ar: "طلبات ربط الاشتراك" },
+  "Verify the customer against Centrum records before approving. The submitted code and phone number are identifiers, not proof by themselves.": { fr: "Vérifiez le client dans les dossiers Centrum avant d’approuver. Le code et le téléphone sont des identifiants, pas des preuves à eux seuls.", ar: "تحقق من العميل في سجلات Centrum قبل الموافقة. الرمز ورقم الهاتف معرّفات وليسا دليلاً بمفردهما." },
+  "Staff note (recommended for rejection)": { fr: "Note du personnel (recommandée en cas de refus)", ar: "ملاحظة الموظف (موصى بها عند الرفض)" },
+  "Approve": { fr: "Approuver", ar: "موافقة" },
+  "Reject": { fr: "Refuser", ar: "رفض" },
+  "There are no subscriber link requests.": { fr: "Il n’y a aucune demande de liaison d’abonnement.", ar: "لا توجد طلبات ربط اشتراك." },
+  "Security": { fr: "Sécurité", ar: "الأمان" }
+};
+
+const ATTR_TRANSLATIONS = { ...UI, ...EXTRA_UI, ...AUTH_AND_SUPPORT_STATES, ...SCREENSHOT_AND_CUSTOMER_PATCH, ...HEADER_ATTRIBUTES, ...LOCATION_AND_CUSTOMER_AUDIT_PATCH, ...AUTH_SECURITY_UI };
 
 function dictionary(locale: Locale) {
-  return locale === "en" ? null : { ...UI, ...EXTRA_UI, ...AUTH_AND_SUPPORT_STATES, ...SCREENSHOT_AND_CUSTOMER_PATCH, ...LOCATION_AND_CUSTOMER_AUDIT_PATCH };
+  return locale === "en" ? null : { ...UI, ...EXTRA_UI, ...AUTH_AND_SUPPORT_STATES, ...SCREENSHOT_AND_CUSTOMER_PATCH, ...LOCATION_AND_CUSTOMER_AUDIT_PATCH, ...AUTH_SECURITY_UI };
 }
 
 function preserveWhitespace(source: string, translated: string) {

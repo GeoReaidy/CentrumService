@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = true
+
+[functions.register-login-device]
+verify_jwt = true

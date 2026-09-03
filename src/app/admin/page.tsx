@@ -1027,6 +1027,7 @@ export default function AdminPage() {
           <div className="mobile-console-tools-menu">
             <Link href="/admin/live-chat" className="mobile-console-tool-link"><strong>Live Chat Inbox</strong><small>Customer conversations</small></Link>
             <Link href="/admin/operations" className="mobile-console-tool-link"><strong>Customer Operations</strong><small>Payments & service requests</small></Link>
+            <Link href="/admin/subscriber-links" className="mobile-console-tool-link"><strong>Subscriber Links</strong><small>Verify portal requests</small></Link>
             <Link href="/admin/revenue" className="mobile-console-tool-link"><strong>Revenue & Collections</strong><small>Paid, unpaid & analytics</small></Link>
             <Link href="/admin/roles" className="mobile-console-tool-link"><strong>Staff & Roles</strong><small>Managers & administrators</small></Link>
             <Link href="/admin/account" className="mobile-console-tool-link"><strong>Account Settings</strong><small>Password & admin session</small></Link>
@@ -1084,6 +1085,10 @@ export default function AdminPage() {
             </Link>
             <Link href="/admin/account" className="admin-tool-link">
               <span><strong>Account Settings</strong><small>Password & admin session</small></span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <Link href="/admin/subscriber-links" className="admin-tool-link">
+              <span><strong>Subscriber Links</strong><small>Verify portal requests</small></span>
               <span aria-hidden="true">→</span>
             </Link>
           </div>

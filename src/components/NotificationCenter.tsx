@@ -8,7 +8,7 @@ import { resolveIsAdmin } from '@/lib/supabase-role';
 import { useLanguage } from '@/components/LanguageProvider';
 import { localizedDateLocale, localizedField } from '@/lib/i18n';
 
-export type NotificationCategory = 'tickets' | 'announcements' | 'service_requests' | 'customization';
+export type NotificationCategory = 'tickets' | 'announcements' | 'service_requests' | 'customization' | 'security';
 
 export type NotificationPreferences = {
   user_id: string;
@@ -59,6 +59,7 @@ export function defaultNotificationPreferences(userId = ''): NotificationPrefere
 }
 
 function categoryEnabled(preferences: NotificationPreferences, category: NotificationCategory) {
+  if (category === 'security') return true;
   if (!preferences.in_app_enabled) return false;
   if (category === 'tickets') return preferences.ticket_notifications;
   if (category === 'announcements') return preferences.announcement_notifications;
@@ -74,6 +75,7 @@ function mergeNotification(current: NotificationRow[], incoming: NotificationRow
 }
 
 function categoryLabel(category: NotificationCategory) {
+  if (category === 'security') return 'Security';
   if (category === 'tickets') return 'Support';
   if (category === 'announcements') return 'Announcement';
   if (category === 'service_requests') return 'Service request';
@@ -316,7 +318,7 @@ export function NotificationCenter() {
     setClock(Date.now());
   }
 
-  if (!supabase || !user || !preferences.in_app_enabled) return null;
+  if (!supabase || !user || (!preferences.in_app_enabled && visibleNotifications.length === 0)) return null;
 
   return (
     <div className="notification-center" aria-live="polite">

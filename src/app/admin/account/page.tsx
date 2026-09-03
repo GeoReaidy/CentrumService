@@ -9,6 +9,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { resolveIsAdmin } from "@/lib/supabase-role";
 import { toFriendlyErrorMessage } from "@/lib/friendly-error";
 import { NotificationPreferencesCard } from "@/components/NotificationPreferencesCard";
+import { ConnectedAccountsCard } from "@/components/ConnectedAccountsCard";
+import { SecurityDevicesCard } from "@/components/SecurityDevicesCard";
 
 export default function AdminAccountPage() {
   const router = useRouter();
@@ -284,6 +286,11 @@ export default function AdminAccountPage() {
 
       <div style={{ marginTop: "1rem" }}>
         <NotificationPreferencesCard userId={account.id} isAdmin />
+      </div>
+
+      <div className="section-grid" style={{ marginTop: "1rem" }}>
+        <ConnectedAccountsCard />
+        <SecurityDevicesCard />
       </div>
 
       <article

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { LoginSecurityMonitor } from "@/components/LoginSecurityMonitor";
 
 export const metadata: Metadata = {
   robots: {
@@ -17,6 +18,7 @@ export default function PortalLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return <>
     {children}
+    <LoginSecurityMonitor />
     <NotificationCenter />
   </>;
 }
