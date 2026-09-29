@@ -185,20 +185,28 @@ add name=centrum-monitor source={
 
     :local payload [:deserialize from=json value=($response->"data")];
     :local targets ($payload->"targets");
+    :local reportsJson "[";
+    :local firstReport true;
 
     :foreach target in=$targets do={
         :local nodeId ($target->"id");
-        :local nodeName ($target->"name");
         :local targetIp ($target->"ip");
         :local received [/ping address=$targetIp count=3 interval=300ms];
         :local state "down";
         :if ($received > 0) do={ :set state "up"; };
 
-        :local body ("{\\\"node_id\\\":\\\"" . $nodeId . "\\\",\\\"status\\\":\\\"" . $state . "\\\"}");
+        :if (!$firstReport) do={ :set reportsJson ($reportsJson . ","); };
+        :set reportsJson ($reportsJson . "{\\\"node_id\\\":\\\"" . $nodeId . "\\\",\\\"status\\\":\\\"" . $state . "\\\"}");
+        :set firstReport false;
+    };
+
+    :if (!$firstReport) do={
+        :set reportsJson ($reportsJson . "]");
+        :local body ("{\\\"reports\\\":" . $reportsJson . "}");
         :onerror postError in={
             /tool fetch url=$endpoint http-method=post http-header-field=("Content-Type:application/json," . $authHeader) http-data=$body check-certificate=no output=none;
         } do={
-            :log warning ("Centrum monitor: failed to report " . $nodeName . ": " . $postError);
+            :log warning ("Centrum monitor: failed to report probe batch: " . $postError);
         };
     };
 }
