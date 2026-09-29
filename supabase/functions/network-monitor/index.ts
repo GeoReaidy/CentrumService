@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 type ProbeStatus = "up" | "down" | "unknown";
 type ProbeReport = { node_id?: unknown; status?: unknown; latency_ms?: unknown };
+type ProbeBody = ProbeReport & { reports?: unknown };
 type MonitorAgent = { id: string; name: string; router_ip: string | null };
 
 const MAX_BODY_BYTES = 8_000;
@@ -194,66 +195,82 @@ Deno.serve(async (request) => {
       const raw = await request.text();
       if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) return json({ error: "Request is too large.", request_id: rid }, 413);
 
-      let body: ProbeReport;
+      let body: ProbeBody;
       try {
-        body = JSON.parse(raw || "{}") as ProbeReport;
+        body = JSON.parse(raw || "{}") as ProbeBody;
       } catch {
         return json({ error: "Invalid request.", request_id: rid }, 400);
       }
 
-      const nodeId = typeof body.node_id === "string" ? body.node_id.trim() : "";
-      const status = normalizeStatus(body.status);
-      const latencyMs = normalizeLatency(body.latency_ms);
-      if (!nodeId || !status) return json({ error: "Invalid probe report.", request_id: rid }, 400);
+      const isBatch = Array.isArray(body.reports);
+      const rawReports = isBatch ? body.reports as ProbeReport[] : [body];
+      if (!rawReports.length || rawReports.length > 100) {
+        return json({ error: "Invalid probe batch.", request_id: rid }, 400);
+      }
 
-      const { data: assignment, error: assignmentError } = await admin
-        .from("monitor_agent_targets")
-        .select("node_id")
-        .eq("agent_id", agent.id)
-        .eq("node_id", nodeId)
-        .maybeSingle();
+      const reports = rawReports.map((report) => ({
+        nodeId: typeof report.node_id === "string" ? report.node_id.trim() : "",
+        status: normalizeStatus(report.status),
+        latencyMs: normalizeLatency(report.latency_ms),
+      }));
+      if (reports.some((report) => !report.nodeId || !report.status)) {
+        return json({ error: "Invalid probe report.", request_id: rid }, 400);
+      }
+
+      const nodeIds = reports.map((report) => report.nodeId);
+      if (new Set(nodeIds).size !== nodeIds.length) {
+        return json({ error: "Duplicate nodes in probe batch.", request_id: rid }, 400);
+      }
+
+      const [{ data: assignments, error: assignmentError }, { data: nodes, error: nodeError }] = await Promise.all([
+        admin.from("monitor_agent_targets").select("node_id").eq("agent_id", agent.id).in("node_id", nodeIds),
+        admin.from("nodes").select("id,name,monitor_enabled").in("id", nodeIds),
+      ]);
       if (assignmentError) throw assignmentError;
-      if (!assignment) return json({ error: "Node is not assigned to this monitor.", request_id: rid }, 404);
-
-      const { data: node, error: nodeError } = await admin
-        .from("nodes")
-        .select("id,name,monitor_enabled")
-        .eq("id", nodeId)
-        .maybeSingle();
       if (nodeError) throw nodeError;
-      if (!node || !node.monitor_enabled) return json({ error: "Unknown or disabled node.", request_id: rid }, 404);
+
+      const assignedIds = new Set((assignments ?? []).map((row) => row.node_id as string));
+      const enabledIds = new Set((nodes ?? []).filter((node) => node.monitor_enabled).map((node) => node.id as string));
+      const unauthorizedNode = nodeIds.find((nodeId) => !assignedIds.has(nodeId));
+      if (unauthorizedNode) return json({ error: "Node is not assigned to this monitor.", request_id: rid }, 404);
+      const disabledNode = nodeIds.find((nodeId) => !enabledIds.has(nodeId));
+      if (disabledNode) return json({ error: "Unknown or disabled node.", request_id: rid }, 404);
 
       const { error: reportError } = await admin
         .from("monitor_probe_results")
         .upsert(
-          {
+          reports.map((report) => ({
             agent_id: agent.id,
-            node_id: nodeId,
-            status,
-            latency_ms: status === "up" ? latencyMs : null,
+            node_id: report.nodeId,
+            status: report.status,
+            latency_ms: report.status === "up" ? report.latencyMs : null,
             reported_at: now,
-          },
+          })),
           { onConflict: "agent_id,node_id" },
         );
       if (reportError) throw reportError;
 
-      // The database trigger recomputes the aggregate node state. ANY fresh UP
-      // from an enabled assigned agent wins over DOWN reports from other agents.
-      await touchAgent(agent.id, now);
-      const network = await refreshAutomaticNetworkStatus();
-
-      const { data: aggregateNode, error: aggregateError } = await admin
+      // GET refreshes the heartbeat and global network status once per monitoring
+      // cycle. Avoid repeating those expensive global queries for probe POSTs.
+      const { data: aggregateNodes, error: aggregateError } = await admin
         .from("nodes")
         .select("id,name,probe_status,latency_ms,last_checked_at,last_seen_at")
-        .eq("id", nodeId)
-        .maybeSingle();
+        .in("id", nodeIds);
       if (aggregateError) throw aggregateError;
+
+      if (!isBatch) {
+        return json({
+          ok: true,
+          agent: { id: agent.id, name: agent.name },
+          node: aggregateNodes?.[0] ?? null,
+        });
+      }
 
       return json({
         ok: true,
         agent: { id: agent.id, name: agent.name },
-        node: aggregateNode,
-        network,
+        reported: reports.length,
+        nodes: aggregateNodes ?? [],
       });
     }
 
